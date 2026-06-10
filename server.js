@@ -5,22 +5,45 @@ const cors = require("cors");
 const admin = require("firebase-admin");
 
 const app = express();
-
 app.use(express.json());
 app.use(cors());
 
 // =========================
-// FIREBASE INIT
+// SAFETY CHECK (PREVENT CRASH)
 // =========================
-admin.initializeApp({
-  credential: admin.credential.cert({
+if (!process.env.FIREBASE_PROJECT_ID) {
+  console.error("❌ Missing FIREBASE_PROJECT_ID");
+}
+
+if (!process.env.FIREBASE_CLIENT_EMAIL) {
+  console.error("❌ Missing FIREBASE_CLIENT_EMAIL");
+}
+
+if (!process.env.FIREBASE_PRIVATE_KEY) {
+  console.error("❌ Missing FIREBASE_PRIVATE_KEY");
+}
+
+// =========================
+// FIREBASE INIT (SAFE)
+// =========================
+let db;
+
+try {
+  const serviceAccount = {
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-  }),
-});
+    privateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
+  };
 
-const db = admin.firestore();
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+
+  db = admin.firestore();
+  console.log("✅ Firebase initialized successfully");
+} catch (err) {
+  console.error("❌ Firebase initialization failed:", err.message);
+}
 
 // =========================
 // DARAJA CONFIG
@@ -32,7 +55,7 @@ const passkey = process.env.PASSKEY;
 const callbackUrl = process.env.CALLBACK_URL;
 
 // =========================
-// GET ACCESS TOKEN
+// ACCESS TOKEN
 // =========================
 async function getAccessToken() {
   const url =
@@ -52,7 +75,7 @@ async function getAccessToken() {
 }
 
 // =========================
-// STK PUSH ROUTE
+// STK PUSH
 // =========================
 app.post("/stkpush", async (req, res) => {
   try {
@@ -92,101 +115,73 @@ app.post("/stkpush", async (req, res) => {
       },
     });
 
-    // =========================
-    // SAVE INITIAL DONATION
-    // =========================
-    await db.collection("donations").add({
-      phone,
-      amount,
-      checkoutRequestID:
-        response.data.CheckoutRequestID,
-      merchantRequestID:
-        response.data.MerchantRequestID,
-      status: "pending",
-      createdAt: new Date(),
-    });
+    // Save to Firestore ONLY if db exists
+    if (db) {
+      await db.collection("donations").add({
+        phone,
+        amount,
+        checkoutRequestID: response.data.CheckoutRequestID,
+        merchantRequestID: response.data.MerchantRequestID,
+        status: "pending",
+        createdAt: new Date(),
+      });
+    }
 
     return res.json(response.data);
-
   } catch (error) {
-    console.error(
-      error.response?.data || error.message
-    );
+    console.error("STK ERROR:", error.response?.data || error.message);
 
     return res.status(500).json({
       error: "STK Push failed",
-      details:
-        error.response?.data || error.message,
+      details: error.response?.data || error.message,
     });
   }
 });
 
 // =========================
-// CALLBACK ROUTE
+// CALLBACK
 // =========================
 app.post("/callback", async (req, res) => {
   try {
-    console.log(
-      "CALLBACK RECEIVED:",
-      JSON.stringify(req.body, null, 2)
-    );
+    console.log("CALLBACK RECEIVED:", JSON.stringify(req.body, null, 2));
 
-    const callback =
-      req.body.Body.stkCallback;
-
-    const checkoutRequestID =
-      callback.CheckoutRequestID;
-
-    const resultCode =
-      callback.ResultCode;
-
-    let status = "failed";
-
-    if (resultCode === 0) {
-      status = "completed";
+    if (!db) {
+      return res.json({ ResultCode: 0, ResultDesc: "No DB connection" });
     }
 
-    // =========================
-    // FIND EXISTING DONATION
-    // =========================
+    const callback = req.body?.Body?.stkCallback;
+
+    if (!callback) {
+      return res.json({ ResultCode: 0, ResultDesc: "Invalid callback" });
+    }
+
+    const checkoutRequestID = callback.CheckoutRequestID;
+    const resultCode = callback.ResultCode;
+
+    let status = resultCode === 0 ? "completed" : "failed";
+
     const snapshot = await db
       .collection("donations")
-      .where(
-        "checkoutRequestID",
-        "==",
-        checkoutRequestID
-      )
+      .where("checkoutRequestID", "==", checkoutRequestID)
       .get();
 
     if (!snapshot.empty) {
       const doc = snapshot.docs[0];
 
       await doc.ref.update({
-        status: status,
+        status,
         callbackData: callback,
         updatedAt: new Date(),
       });
 
-      console.log(
-        "Donation updated successfully"
-      );
-    } else {
-      console.log(
-        "Donation document not found"
-      );
+      console.log("✅ Donation updated");
     }
 
-    res.json({
-      ResultCode: 0,
-      ResultDesc: "Accepted",
-    });
-
+    res.json({ ResultCode: 0, ResultDesc: "Accepted" });
   } catch (error) {
-    console.error(error);
+    console.error("CALLBACK ERROR:", error.message);
 
-    res.status(500).json({
-      error: "Callback failed",
-    });
+    res.status(500).json({ error: "Callback failed" });
   }
 });
 
@@ -194,9 +189,7 @@ app.post("/callback", async (req, res) => {
 // HEALTH CHECK
 // =========================
 app.get("/", (req, res) => {
-  res.send(
-    "HarambeeFlow Backend Running 🚀"
-  );
+  res.send("HarambeeFlow Backend Running 🚀");
 });
 
 // =========================
@@ -205,9 +198,8 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(
-    `Server running on port ${PORT}`
-  );
+  console.log(`Server running on port ${PORT}`);
 });
 ```
+
 
