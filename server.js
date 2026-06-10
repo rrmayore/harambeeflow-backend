@@ -1,3 +1,4 @@
+```javascript
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -7,18 +8,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// =========================
+// ===============================
 // HOME ROUTE
-// =========================
+// ===============================
 app.get("/", (req, res) => {
   res.send("HarambeeFlow Backend Running 🚀");
 });
 
-// =========================
-// GET ACCESS TOKEN
-// =========================
+// ===============================
+// ACCESS TOKEN FUNCTION
+// ===============================
 const getAccessToken = async () => {
   try {
+
     const consumerKey = process.env.CONSUMER_KEY;
     const consumerSecret = process.env.CONSUMER_SECRET;
 
@@ -38,19 +40,21 @@ const getAccessToken = async () => {
     return response.data.access_token;
 
   } catch (error) {
+
     console.error(
       "ACCESS TOKEN ERROR:",
       error.response?.data || error.message
     );
 
-    throw new Error("Access token generation failed");
+    throw new Error("Failed to generate access token");
   }
 };
 
-// =========================
+// ===============================
 // STK PUSH ROUTE
-// =========================
+// ===============================
 app.post("/stkpush", async (req, res) => {
+
   try {
 
     const { phone, amount } = req.body;
@@ -62,23 +66,29 @@ app.post("/stkpush", async (req, res) => {
     }
 
     const shortcode =
-      process.env.BUSINESS_SHORT_CODE || "174379";
+      process.env.BUSINESS_SHORT_CODE;
+
+    const passkey =
+      process.env.PASSKEY;
 
     const callbackURL =
       process.env.CALLBACK_URL;
 
-    const token = await getAccessToken();
-
+    // Timestamp format
     const timestamp = new Date()
       .toISOString()
       .replace(/[^0-9]/g, "")
       .slice(0, 14);
 
-    // SANDBOX SAFE PASSWORD
+    // Password generation
     const password = Buffer.from(
-      shortcode + timestamp
+      shortcode + passkey + timestamp
     ).toString("base64");
 
+    // Get access token
+    const token = await getAccessToken();
+
+    // STK payload
     const payload = {
       BusinessShortCode: shortcode,
       Password: password,
@@ -90,9 +100,10 @@ app.post("/stkpush", async (req, res) => {
       PhoneNumber: phone,
       CallBackURL: callbackURL,
       AccountReference: "HarambeeFlow",
-      TransactionDesc: "Fundraiser Payment"
+      TransactionDesc: "Fundraiser Contribution"
     };
 
+    // Send STK request
     const response = await axios.post(
       "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
       payload,
@@ -102,6 +113,8 @@ app.post("/stkpush", async (req, res) => {
         }
       }
     );
+
+    console.log("STK SUCCESS:", response.data);
 
     return res.json(response.data);
 
@@ -119,9 +132,9 @@ app.post("/stkpush", async (req, res) => {
   }
 });
 
-// =========================
-// CALLBACK
-// =========================
+// ===============================
+// CALLBACK ROUTE
+// ===============================
 app.post("/callback", (req, res) => {
 
   console.log(
@@ -135,25 +148,13 @@ app.post("/callback", (req, res) => {
   });
 });
 
-// =========================
+// ===============================
 // START SERVER
-// =========================
+// ===============================
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-// =========================
-// 4. HOME ROUTE
-// =========================
-app.get("/", (req, res) => {
-  res.send("HarambeeFlow M-PESA Backend Running 🚀");
-});
+```
 
-// =========================
-// START SERVER
-// =========================
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
