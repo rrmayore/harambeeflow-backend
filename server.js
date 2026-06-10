@@ -1,4 +1,3 @@
-```javascript
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -8,19 +7,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ===============================
-// HOME ROUTE
-// ===============================
+// ======================
+// HEALTH CHECK ROUTE
+// ======================
 app.get("/", (req, res) => {
   res.send("HarambeeFlow Backend Running 🚀");
 });
 
-// ===============================
-// ACCESS TOKEN FUNCTION
-// ===============================
-const getAccessToken = async () => {
+// ======================
+// ACCESS TOKEN
+// ======================
+async function getAccessToken() {
   try {
-
     const consumerKey = process.env.CONSUMER_KEY;
     const consumerSecret = process.env.CONSUMER_SECRET;
 
@@ -40,56 +38,40 @@ const getAccessToken = async () => {
     return response.data.access_token;
 
   } catch (error) {
-
-    console.error(
-      "ACCESS TOKEN ERROR:",
-      error.response?.data || error.message
-    );
-
-    throw new Error("Failed to generate access token");
+    console.error("TOKEN ERROR:", error.response?.data || error.message);
+    throw new Error("Failed to get access token");
   }
-};
+}
 
-// ===============================
+// ======================
 // STK PUSH ROUTE
-// ===============================
+// ======================
 app.post("/stkpush", async (req, res) => {
-
   try {
-
     const { phone, amount } = req.body;
 
     if (!phone || !amount) {
       return res.status(400).json({
-        error: "Phone and amount are required"
+        error: "Phone and amount required"
       });
     }
 
-    const shortcode =
-      process.env.BUSINESS_SHORT_CODE;
+    const shortcode = process.env.BUSINESS_SHORT_CODE;
+    const passkey = process.env.PASSKEY;
+    const callbackURL = process.env.CALLBACK_URL;
 
-    const passkey =
-      process.env.PASSKEY;
-
-    const callbackURL =
-      process.env.CALLBACK_URL;
-
-    // Timestamp format
     const timestamp = new Date()
       .toISOString()
       .replace(/[^0-9]/g, "")
       .slice(0, 14);
 
-    // Password generation
     const password = Buffer.from(
       shortcode + passkey + timestamp
     ).toString("base64");
 
-    // Get access token
     const token = await getAccessToken();
 
-    // STK payload
-    const payload = {
+    const stkRequest = {
       BusinessShortCode: shortcode,
       Password: password,
       Timestamp: timestamp,
@@ -100,13 +82,12 @@ app.post("/stkpush", async (req, res) => {
       PhoneNumber: phone,
       CallBackURL: callbackURL,
       AccountReference: "HarambeeFlow",
-      TransactionDesc: "Fundraiser Contribution"
+      TransactionDesc: "Donation"
     };
 
-    // Send STK request
     const response = await axios.post(
       "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
-      payload,
+      stkRequest,
       {
         headers: {
           Authorization: `Bearer ${token}`
@@ -116,45 +97,35 @@ app.post("/stkpush", async (req, res) => {
 
     console.log("STK SUCCESS:", response.data);
 
-    return res.json(response.data);
+    res.json(response.data);
 
   } catch (error) {
+    console.error("STK ERROR:", error.response?.data || error.message);
 
-    console.error(
-      "STK PUSH ERROR:",
-      error.response?.data || error.message
-    );
-
-    return res.status(500).json({
+    res.status(500).json({
       error: "STK Push failed",
       details: error.response?.data || error.message
     });
   }
 });
 
-// ===============================
+// ======================
 // CALLBACK ROUTE
-// ===============================
+// ======================
 app.post("/callback", (req, res) => {
+  console.log("CALLBACK RECEIVED:", JSON.stringify(req.body, null, 2));
 
-  console.log(
-    "CALLBACK RECEIVED:",
-    JSON.stringify(req.body, null, 2)
-  );
-
-  return res.json({
+  res.json({
     ResultCode: 0,
     ResultDesc: "Accepted"
   });
 });
 
-// ===============================
+// ======================
 // START SERVER
-// ===============================
+// ======================
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-```
-
