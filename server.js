@@ -1,4 +1,3 @@
-
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -8,10 +7,10 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-console.log("🚀 Starting HarambeeFlow backend...");
+console.log("🚀 Starting HarambeeFlow Backend...");
 
 // =========================
-// ENV CHECK (NO CRASH)
+// ENV VARIABLES
 // =========================
 const {
   FIREBASE_PROJECT_ID,
@@ -25,7 +24,7 @@ const {
 } = process.env;
 
 // =========================
-// FIREBASE INIT (SAFE MODE)
+// FIREBASE INIT (SAFE)
 // =========================
 let db = null;
 
@@ -44,7 +43,6 @@ try {
     });
 
     db = admin.firestore();
-
     console.log("✅ Firebase connected");
   } else {
     console.log("⚠️ Firebase env missing - running without Firestore");
@@ -54,7 +52,7 @@ try {
 }
 
 // =========================
-// ACCESS TOKEN
+// GET ACCESS TOKEN
 // =========================
 async function getAccessToken() {
   const url =
@@ -91,7 +89,7 @@ app.post("/stkpush", async (req, res) => {
       BUSINESS_SHORT_CODE + PASSKEY + timestamp
     ).toString("base64");
 
-    const response = await axios.post(
+    const stkResponse = await axios.post(
       "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
       {
         BusinessShortCode: BUSINESS_SHORT_CODE,
@@ -113,19 +111,19 @@ app.post("/stkpush", async (req, res) => {
       }
     );
 
-    // Save ONLY if Firebase is available
+    // Save to Firestore
     if (db) {
       await db.collection("donations").add({
         phone,
         amount,
-        checkoutRequestID: response.data.CheckoutRequestID,
-        merchantRequestID: response.data.MerchantRequestID,
+        checkoutRequestID: stkResponse.data.CheckoutRequestID,
+        merchantRequestID: stkResponse.data.MerchantRequestID,
         status: "pending",
         createdAt: new Date(),
       });
     }
 
-    return res.json(response.data);
+    return res.json(stkResponse.data);
   } catch (err) {
     console.error("STK ERROR:", err.response?.data || err.message);
 
@@ -137,36 +135,52 @@ app.post("/stkpush", async (req, res) => {
 });
 
 // =========================
-// CALLBACK
+// CALLBACK (FIXED LOGIC)
 // =========================
 app.post("/callback", async (req, res) => {
   try {
-    console.log("CALLBACK:", JSON.stringify(req.body, null, 2));
+    console.log("📩 CALLBACK RECEIVED:", JSON.stringify(req.body, null, 2));
 
     const callback = req.body?.Body?.stkCallback;
 
-    if (db && callback) {
-      const checkoutRequestID = callback.CheckoutRequestID;
-      const status = callback.ResultCode === 0 ? "completed" : "failed";
-
-      const snapshot = await db
-        .collection("donations")
-        .where("checkoutRequestID", "==", checkoutRequestID)
-        .get();
-
-      if (!snapshot.empty) {
-        await snapshot.docs[0].ref.update({
-          status,
-          callbackData: callback,
-          updatedAt: new Date(),
-        });
-      }
+    if (!db || !callback) {
+      return res.json({ ResultCode: 0, ResultDesc: "Ignored" });
     }
 
-    res.json({ ResultCode: 0, ResultDesc: "Accepted" });
-  } catch (err) {
-    console.error("CALLBACK ERROR:", err.message);
-    res.status(500).json({ error: "Callback failed" });
+    const checkoutRequestID = callback.CheckoutRequestID;
+    const resultCode = callback.ResultCode;
+
+    // ✅ FIXED LOGIC
+    let status = "failed";
+
+    if (resultCode === 0) {
+      status = "completed";
+    }
+
+    const snapshot = await db
+      .collection("donations")
+      .where("checkoutRequestID", "==", checkoutRequestID)
+      .get();
+
+    if (!snapshot.empty) {
+      await snapshot.docs[0].ref.update({
+        status,
+        callbackData: callback,
+        updatedAt: new Date(),
+      });
+
+      console.log("✅ Donation updated:", status);
+    } else {
+      console.log("⚠️ Donation not found");
+    }
+
+    return res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+  } catch (error) {
+    console.error("❌ Callback Error:", error.message);
+
+    return res.status(500).json({
+      error: "Callback failed",
+    });
   }
 });
 
@@ -183,5 +197,5 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
