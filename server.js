@@ -1,77 +1,75 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
+const admin = require("firebase-admin");
 
 const app = express();
-
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 
-// ======================
-// HEALTH CHECK ROUTE
-// ======================
-app.get("/", (req, res) => {
-  res.send("HarambeeFlow Backend Running 🚀");
+// =========================
+// FIREBASE INIT (ENV BASED)
+// =========================
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+  }),
 });
 
-// ======================
-// ACCESS TOKEN
-// ======================
+const db = admin.firestore();
+
+// =========================
+// DARAJA CONFIG
+// =========================
+const consumerKey = process.env.CONSUMER_KEY;
+const consumerSecret = process.env.CONSUMER_SECRET;
+const shortcode = process.env.BUSINESS_SHORT_CODE;
+const passkey = process.env.PASSKEY;
+const callbackUrl = process.env.CALLBACK_URL;
+
+// =========================
+// GET ACCESS TOKEN
+// =========================
 async function getAccessToken() {
-  try {
-    const consumerKey = process.env.CONSUMER_KEY;
-    const consumerSecret = process.env.CONSUMER_SECRET;
+  const url =
+    "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
 
-    const auth = Buffer.from(
-      `${consumerKey}:${consumerSecret}`
-    ).toString("base64");
+  const auth =
+    Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
 
-    const response = await axios.get(
-      "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
-      {
-        headers: {
-          Authorization: `Basic ${auth}`,
-        },
-      }
-    );
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Basic ${auth}`,
+    },
+  });
 
-    return response.data.access_token;
-
-  } catch (error) {
-    console.error("TOKEN ERROR:", error.response?.data || error.message);
-    throw new Error("Failed to get access token");
-  }
+  return response.data.access_token;
 }
 
-// ======================
+// =========================
 // STK PUSH ROUTE
-// ======================
+// =========================
 app.post("/stkpush", async (req, res) => {
   try {
     const { phone, amount } = req.body;
 
-    if (!phone || !amount) {
-      return res.status(400).json({
-        error: "Phone and amount required"
-      });
-    }
-
-    const shortcode = process.env.BUSINESS_SHORT_CODE;
-    const passkey = process.env.PASSKEY;
-    const callbackURL = process.env.CALLBACK_URL;
+    const token = await getAccessToken();
 
     const timestamp = new Date()
       .toISOString()
-      .replace(/[^0-9]/g, "")
+      .replace(/[-T:\.Z]/g, "")
       .slice(0, 14);
 
-    const password = Buffer.from(
-      shortcode + passkey + timestamp
-    ).toString("base64");
+    const password = Buffer.from(shortcode + passkey + timestamp).toString(
+      "base64"
+    );
 
-    const token = await getAccessToken();
+    const stkUrl =
+      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
 
-    const stkRequest = {
+    const payload = {
       BusinessShortCode: shortcode,
       Password: password,
       Timestamp: timestamp,
@@ -80,52 +78,71 @@ app.post("/stkpush", async (req, res) => {
       PartyA: phone,
       PartyB: shortcode,
       PhoneNumber: phone,
-      CallBackURL: callbackURL,
+      CallBackURL: callbackUrl,
       AccountReference: "HarambeeFlow",
-      TransactionDesc: "Donation"
+      TransactionDesc: "Donation",
     };
 
-    const response = await axios.post(
-      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
-      stkRequest,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    );
+    const response = await axios.post(stkUrl, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-    console.log("STK SUCCESS:", response.data);
+    // =========================
+    // SAVE TO FIRESTORE
+    // =========================
+    await db.collection("donations").add({
+      phone,
+      amount,
+      checkoutRequestID: response.data.CheckoutRequestID,
+      merchantRequestID: response.data.MerchantRequestID,
+      status: "pending",
+      createdAt: new Date(),
+    });
 
-    res.json(response.data);
-
+    return res.json(response.data);
   } catch (error) {
-    console.error("STK ERROR:", error.response?.data || error.message);
+    console.error(error.response?.data || error.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       error: "STK Push failed",
-      details: error.response?.data || error.message
+      details: error.response?.data || error.message,
     });
   }
 });
 
-// ======================
+// =========================
 // CALLBACK ROUTE
-// ======================
-app.post("/callback", (req, res) => {
-  console.log("CALLBACK RECEIVED:", JSON.stringify(req.body, null, 2));
+// =========================
+app.post("/callback", async (req, res) => {
+  try {
+    console.log("CALLBACK RECEIVED:", JSON.stringify(req.body, null, 2));
 
-  res.json({
-    ResultCode: 0,
-    ResultDesc: "Accepted"
-  });
+    await db.collection("donations").add({
+      callback: req.body,
+      status: "completed",
+      createdAt: new Date(),
+    });
+
+    res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Callback failed" });
+  }
 });
 
-// ======================
-// START SERVER
-// ======================
-const PORT = process.env.PORT || 8080;
+// =========================
+// HEALTH CHECK
+// =========================
+app.get("/", (req, res) => {
+  res.send("HarambeeFlow Backend Running 🚀");
+});
 
+// =========================
+// START SERVER
+// =========================
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
