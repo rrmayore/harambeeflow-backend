@@ -1,4 +1,4 @@
-```javascript
+
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -8,51 +8,50 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// =========================
-// SAFETY CHECK (PREVENT CRASH)
-// =========================
-if (!process.env.FIREBASE_PROJECT_ID) {
-  console.error("❌ Missing FIREBASE_PROJECT_ID");
-}
-
-if (!process.env.FIREBASE_CLIENT_EMAIL) {
-  console.error("❌ Missing FIREBASE_CLIENT_EMAIL");
-}
-
-if (!process.env.FIREBASE_PRIVATE_KEY) {
-  console.error("❌ Missing FIREBASE_PRIVATE_KEY");
-}
+console.log("🚀 Starting HarambeeFlow backend...");
 
 // =========================
-// FIREBASE INIT (SAFE)
+// ENV CHECK (NO CRASH)
 // =========================
-let db;
+const {
+  FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY,
+  CONSUMER_KEY,
+  CONSUMER_SECRET,
+  BUSINESS_SHORT_CODE,
+  PASSKEY,
+  CALLBACK_URL,
+} = process.env;
+
+// =========================
+// FIREBASE INIT (SAFE MODE)
+// =========================
+let db = null;
 
 try {
-  const serviceAccount = {
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
-  };
+  if (
+    FIREBASE_PROJECT_ID &&
+    FIREBASE_CLIENT_EMAIL &&
+    FIREBASE_PRIVATE_KEY
+  ) {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: FIREBASE_PROJECT_ID,
+        clientEmail: FIREBASE_CLIENT_EMAIL,
+        privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+      }),
+    });
 
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
+    db = admin.firestore();
 
-  db = admin.firestore();
-  console.log("✅ Firebase initialized successfully");
+    console.log("✅ Firebase connected");
+  } else {
+    console.log("⚠️ Firebase env missing - running without Firestore");
+  }
 } catch (err) {
-  console.error("❌ Firebase initialization failed:", err.message);
+  console.error("❌ Firebase init error:", err.message);
 }
-
-// =========================
-// DARAJA CONFIG
-// =========================
-const consumerKey = process.env.CONSUMER_KEY;
-const consumerSecret = process.env.CONSUMER_SECRET;
-const shortcode = process.env.BUSINESS_SHORT_CODE;
-const passkey = process.env.PASSKEY;
-const callbackUrl = process.env.CALLBACK_URL;
 
 // =========================
 // ACCESS TOKEN
@@ -62,7 +61,7 @@ async function getAccessToken() {
     "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
 
   const auth = Buffer.from(
-    `${consumerKey}:${consumerSecret}`
+    `${CONSUMER_KEY}:${CONSUMER_SECRET}`
   ).toString("base64");
 
   const response = await axios.get(url, {
@@ -89,33 +88,32 @@ app.post("/stkpush", async (req, res) => {
       .slice(0, 14);
 
     const password = Buffer.from(
-      shortcode + passkey + timestamp
+      BUSINESS_SHORT_CODE + PASSKEY + timestamp
     ).toString("base64");
 
-    const stkUrl =
-      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
-
-    const payload = {
-      BusinessShortCode: shortcode,
-      Password: password,
-      Timestamp: timestamp,
-      TransactionType: "CustomerPayBillOnline",
-      Amount: amount,
-      PartyA: phone,
-      PartyB: shortcode,
-      PhoneNumber: phone,
-      CallBackURL: callbackUrl,
-      AccountReference: "HarambeeFlow",
-      TransactionDesc: "Donation",
-    };
-
-    const response = await axios.post(stkUrl, payload, {
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const response = await axios.post(
+      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
+      {
+        BusinessShortCode: BUSINESS_SHORT_CODE,
+        Password: password,
+        Timestamp: timestamp,
+        TransactionType: "CustomerPayBillOnline",
+        Amount: amount,
+        PartyA: phone,
+        PartyB: BUSINESS_SHORT_CODE,
+        PhoneNumber: phone,
+        CallBackURL: CALLBACK_URL,
+        AccountReference: "HarambeeFlow",
+        TransactionDesc: "Donation",
       },
-    });
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
-    // Save to Firestore ONLY if db exists
+    // Save ONLY if Firebase is available
     if (db) {
       await db.collection("donations").add({
         phone,
@@ -128,12 +126,12 @@ app.post("/stkpush", async (req, res) => {
     }
 
     return res.json(response.data);
-  } catch (error) {
-    console.error("STK ERROR:", error.response?.data || error.message);
+  } catch (err) {
+    console.error("STK ERROR:", err.response?.data || err.message);
 
     return res.status(500).json({
       error: "STK Push failed",
-      details: error.response?.data || error.message,
+      details: err.response?.data || err.message,
     });
   }
 });
@@ -143,44 +141,31 @@ app.post("/stkpush", async (req, res) => {
 // =========================
 app.post("/callback", async (req, res) => {
   try {
-    console.log("CALLBACK RECEIVED:", JSON.stringify(req.body, null, 2));
-
-    if (!db) {
-      return res.json({ ResultCode: 0, ResultDesc: "No DB connection" });
-    }
+    console.log("CALLBACK:", JSON.stringify(req.body, null, 2));
 
     const callback = req.body?.Body?.stkCallback;
 
-    if (!callback) {
-      return res.json({ ResultCode: 0, ResultDesc: "Invalid callback" });
-    }
+    if (db && callback) {
+      const checkoutRequestID = callback.CheckoutRequestID;
+      const status = callback.ResultCode === 0 ? "completed" : "failed";
 
-    const checkoutRequestID = callback.CheckoutRequestID;
-    const resultCode = callback.ResultCode;
+      const snapshot = await db
+        .collection("donations")
+        .where("checkoutRequestID", "==", checkoutRequestID)
+        .get();
 
-    let status = resultCode === 0 ? "completed" : "failed";
-
-    const snapshot = await db
-      .collection("donations")
-      .where("checkoutRequestID", "==", checkoutRequestID)
-      .get();
-
-    if (!snapshot.empty) {
-      const doc = snapshot.docs[0];
-
-      await doc.ref.update({
-        status,
-        callbackData: callback,
-        updatedAt: new Date(),
-      });
-
-      console.log("✅ Donation updated");
+      if (!snapshot.empty) {
+        await snapshot.docs[0].ref.update({
+          status,
+          callbackData: callback,
+          updatedAt: new Date(),
+        });
+      }
     }
 
     res.json({ ResultCode: 0, ResultDesc: "Accepted" });
-  } catch (error) {
-    console.error("CALLBACK ERROR:", error.message);
-
+  } catch (err) {
+    console.error("CALLBACK ERROR:", err.message);
     res.status(500).json({ error: "Callback failed" });
   }
 });
@@ -200,6 +185,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-```
-
-
