@@ -92,7 +92,7 @@ app.post("/stkpush", async (req, res) => {
       },
     });
 
-    // SAVE TO FIRESTORE (PENDING)
+    // Save donation (pending)
     await db.collection("donations").add({
       phone,
       amount,
@@ -102,12 +102,12 @@ app.post("/stkpush", async (req, res) => {
       createdAt: new Date(),
     });
 
-    return res.json(response.data);
+    res.json(response.data);
 
   } catch (error) {
     console.error(error.response?.data || error.message);
 
-    return res.status(500).json({
+    res.status(500).json({
       error: "STK Push failed",
       details: error.response?.data || error.message,
     });
@@ -115,25 +115,21 @@ app.post("/stkpush", async (req, res) => {
 });
 
 /* =========================
-   CALLBACK (FIXED VERSION)
+   CALLBACK (FIXED + SAFE)
 ========================= */
 app.post("/callback", async (req, res) => {
   try {
-    console.log("🔥 RAW CALLBACK RECEIVED:");
+    console.log("🔥 CALLBACK RECEIVED:");
     console.log(JSON.stringify(req.body, null, 2));
 
     const callback = req.body.Body?.stkCallback;
 
     if (!callback) {
-      console.log("❌ Invalid callback structure");
       return res.json({ ResultCode: 0, ResultDesc: "Accepted" });
     }
 
     const checkoutRequestID = callback.CheckoutRequestID;
     const resultCode = callback.ResultCode;
-
-    console.log("CheckoutRequestID:", checkoutRequestID);
-    console.log("ResultCode:", resultCode);
 
     let status = resultCode === 0 ? "completed" : "failed";
 
@@ -149,19 +145,40 @@ app.post("/callback", async (req, res) => {
         updatedAt: new Date(),
       });
 
-      console.log("✅ Firestore updated");
+      console.log("✅ Donation updated");
     } else {
-      console.log("⚠️ Donation not found in Firestore");
+      console.log("⚠️ Donation not found");
     }
 
     res.json({ ResultCode: 0, ResultDesc: "Accepted" });
 
   } catch (error) {
-    console.error("Callback Error:", error);
+    console.error("Callback error:", error);
+    res.status(500).json({ error: "Callback failed" });
+  }
+});
 
-    res.status(500).json({
-      error: "Callback failed",
+/* =========================
+   ADMIN API (DASHBOARD)
+========================= */
+app.get("/donations", async (req, res) => {
+  try {
+    const snapshot = await db.collection("donations").get();
+
+    const donations = [];
+
+    snapshot.forEach(doc => {
+      donations.push({
+        id: doc.id,
+        ...doc.data(),
+      });
     });
+
+    res.json(donations);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch donations" });
   }
 });
 
