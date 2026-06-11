@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HarambeeFlow Admin</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: white;
+}
+
+/* HEADER */
+.header {
+  padding: 20px;
+  background: #111827;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+/* STATS */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 20px;
+}
+
+.card {
+  background: #1f2937;
+  padding: 15px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.card p {
+  font-size: 22px;
+  margin: 10px 0 0;
+}
+
+/* TABLE */
+.table-container {
+  padding: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #111827;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+th, td {
+  padding: 12px;
+  border-bottom: 1px solid #1f2937;
+  text-align: left;
+}
+
+th {
+  background: #1f2937;
+}
+
+/* STATUS COLORS */
+.status {
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.completed { background: green; }
+.pending { background: orange; }
+.failed { background: red; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <h1>💰 HarambeeFlow Admin Dashboard</h1>
+  <div>Live System</div>
+</div>
+
+<div class="stats">
+  <div class="card">
+    <h2>Total Raised</h2>
+    <p id="total">0</p>
+  </div>
+
+  <div class="card">
+    <h2>Completed</h2>
+    <p id="completed">0</p>
+  </div>
+
+  <div class="card">
+    <h2>Pending</h2>
+    <p id="pending">0</p>
+  </div>
+
+  <div class="card">
+    <h2>Failed</h2>
+    <p id="failed">0</p>
+  </div>
+</div>
+
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>Phone</th>
+        <th>Amount</th>
+        <th>Status</th>
+        <th>Checkout ID</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody id="table"></tbody>
+  </table>
+</div>
+
+<script>
+
+async function loadData() {
+  const res = await fetch("https://harambeeflow-backend.onrender.com/stats");
+  const data = await res.json();
+
+  document.getElementById("total").innerText = "KES " + data.total;
+  document.getElementById("completed").innerText = data.completed;
+  document.getElementById("pending").innerText = data.pending;
+  document.getElementById("failed").innerText = data.failed;
+
+  const table = document.getElementById("table");
+  table.innerHTML = "";
+
+  data.donations.forEach(d => {
+    table.innerHTML += `
+      <tr>
+        <td>${d.phone}</td>
+        <td>${d.amount}</td>
+        <td><span class="status ${d.status}">${d.status}</span></td>
+        <td>${d.checkoutRequestID}</td>
+        <td>${d.createdAt ? new Date(d.createdAt._seconds * 1000).toLocaleString() : ""}</td>
+      </tr>
+    `;
+  });
+}
+
+loadData();
+setInterval(loadData, 5000);
+
+</script>
+
+</body>
+</html>
