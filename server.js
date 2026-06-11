@@ -1,4 +1,3 @@
-
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -32,7 +31,7 @@ const passkey = process.env.PASSKEY;
 const callbackUrl = process.env.CALLBACK_URL;
 
 /* =========================
-   GET ACCESS TOKEN
+   ACCESS TOKEN
 ========================= */
 async function getAccessToken() {
   const url =
@@ -92,7 +91,7 @@ app.post("/stkpush", async (req, res) => {
       },
     });
 
-    // Save donation (pending)
+    // SAVE DONATION (PENDING)
     await db.collection("donations").add({
       phone,
       amount,
@@ -115,7 +114,7 @@ app.post("/stkpush", async (req, res) => {
 });
 
 /* =========================
-   CALLBACK (FIXED + SAFE)
+   CALLBACK (SAFE + FIXED)
 ========================= */
 app.post("/callback", async (req, res) => {
   try {
@@ -159,7 +158,7 @@ app.post("/callback", async (req, res) => {
 });
 
 /* =========================
-   ADMIN API (DASHBOARD)
+   GET ALL DONATIONS (DASHBOARD)
 ========================= */
 app.get("/donations", async (req, res) => {
   try {
@@ -177,8 +176,46 @@ app.get("/donations", async (req, res) => {
     res.json(donations);
 
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: "Failed to fetch donations" });
+  }
+});
+
+/* =========================
+   STATS API (DASHBOARD PRO)
+========================= */
+app.get("/stats", async (req, res) => {
+  try {
+    const snapshot = await db.collection("donations").get();
+
+    let total = 0;
+    let completed = 0;
+    let pending = 0;
+    let failed = 0;
+
+    const donations = [];
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+
+      total += Number(data.amount || 0);
+
+      if (data.status === "completed") completed++;
+      else if (data.status === "pending") pending++;
+      else if (data.status === "failed") failed++;
+
+      donations.push({ id: doc.id, ...data });
+    });
+
+    res.json({
+      total,
+      completed,
+      pending,
+      failed,
+      donations,
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load stats" });
   }
 });
 
