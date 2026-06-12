@@ -101,104 +101,108 @@ th {
 </style>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getAuth,
-    onAuthStateChanged,
-    signOut
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  // 🔑 Firebase Config (same project)
-  const firebaseConfig = {
-    apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
-    authDomain: "harambeeflow.firebaseapp.com",
-    projectId: "harambeeflow",
-    storageBucket: "harambeeflow.firebasestorage.app",
-    messagingSenderId: "991042439020",
-    appId: "1:991042439020:web:f31c474633b26c52121549",
-    measurementId: "G-X131DGXWVJ"
-  };
+import {
+  getFirestore,
+  collection,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
+/* 🔑 Firebase Config */
+const firebaseConfig = {
+  apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
+  authDomain: "harambeeflow.firebaseapp.com",
+  projectId: "harambeeflow",
+  storageBucket: "harambeeflow.firebasestorage.app",
+  messagingSenderId: "991042439020",
+  appId: "1:991042439020:web:f31c474633b26c52121549",
+  measurementId: "G-X131DGXWVJ"
+};
 
-  const ADMIN_EMAIL = "admin@harambeeflow.com"; // 🔐 CHANGE ONLY IF NEEDED
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-  // 🔒 AUTH + ADMIN GUARD
-  onAuthStateChanged(auth, async (user) => {
+const ADMIN_EMAIL = "admin@harambeeflow.com";
 
-    if (!user) {
-      window.location.href = "login.html";
-      return;
-    }
+/* 🔒 AUTH GUARD */
+onAuthStateChanged(auth, async (user) => {
 
-    // 🔐 ADMIN CHECK
-    if (user.email !== ADMIN_EMAIL) {
-      alert("Access denied. Admin only.");
-      await signOut(auth);
-      window.location.href = "login.html";
-      return;
-    }
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
 
-    console.log("✅ Admin verified:", user.email);
-
-    const token = await user.getIdToken();
-    loadData(token);
-  });
-
-  // 🚪 LOGOUT
-  window.logout = async function () {
+  if (user.email !== ADMIN_EMAIL) {
+    alert("Access denied. Admin only.");
     await signOut(auth);
     window.location.href = "login.html";
-  };
-
-  // 📊 LOAD DATA (SECURED API)
-  async function loadData(token) {
-
-    try {
-
-      const res = await fetch(
-        "https://harambeeflow-backend.onrender.com/stats",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      if (!res.ok) throw new Error("Unauthorized");
-
-      const data = await res.json();
-
-      document.getElementById("total").innerText = "KES " + data.total;
-      document.getElementById("completed").innerText = data.completed;
-      document.getElementById("pending").innerText = data.pending;
-      document.getElementById("failed").innerText = data.failed;
-
-      const table = document.getElementById("table");
-      table.innerHTML = "";
-
-      data.donations.forEach(d => {
-        table.innerHTML += `
-          <tr>
-            <td>${d.phone}</td>
-            <td>${d.amount}</td>
-            <td><span class="status ${d.status}">${d.status}</span></td>
-            <td>${d.checkoutRequestID}</td>
-            <td>${
-              d.createdAt
-                ? new Date(d.createdAt._seconds * 1000).toLocaleString()
-                : ""
-            }</td>
-          </tr>
-        `;
-      });
-
-    } catch (err) {
-      console.error(err);
-      alert("Failed to load dashboard data");
-    }
+    return;
   }
+
+  console.log("✅ Admin verified:", user.email);
+
+  startRealtimeDashboard();
+});
+
+/* 🚪 LOGOUT */
+window.logout = async function () {
+  await signOut(auth);
+  window.location.href = "login.html";
+};
+
+/* ⚡ REAL-TIME DASHBOARD ENGINE */
+function startRealtimeDashboard() {
+
+  const donationsRef = collection(db, "donations");
+
+  onSnapshot(donationsRef, (snapshot) => {
+
+    let total = 0;
+    let completed = 0;
+    let pending = 0;
+    let failed = 0;
+
+    const table = document.getElementById("table");
+    table.innerHTML = "";
+
+    snapshot.forEach(doc => {
+      const d = doc.data();
+
+      total += Number(d.amount || 0);
+
+      if (d.status === "completed") completed++;
+      else if (d.status === "pending") pending++;
+      else if (d.status === "failed") failed++;
+
+      table.innerHTML += `
+        <tr>
+          <td>${d.phone}</td>
+          <td>${d.amount}</td>
+          <td><span class="status ${d.status}">${d.status}</span></td>
+          <td>${d.checkoutRequestID}</td>
+          <td>${
+            d.createdAt
+              ? new Date(d.createdAt._seconds * 1000).toLocaleString()
+              : ""
+          }</td>
+        </tr>
+      `;
+    });
+
+    document.getElementById("total").innerText = "KES " + total;
+    document.getElementById("completed").innerText = completed;
+    document.getElementById("pending").innerText = pending;
+    document.getElementById("failed").innerText = failed;
+
+  });
+}
 
 </script>
 
