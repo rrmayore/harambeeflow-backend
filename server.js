@@ -8,12 +8,10 @@ const app = express();
 app.use(express.json());
 
 /* =========================
-   CORS SECURITY
+   CORS LOCK (FRONTEND ONLY)
 ========================= */
 app.use(cors({
-  origin: [
-    "https://rrmayore.github.io"
-  ]
+  origin: "https://rrmayore.github.io"
 }));
 
 /* =========================
@@ -30,32 +28,36 @@ admin.initializeApp({
 const db = admin.firestore();
 
 /* =========================
-   FIREBASE AUTH MIDDLEWARE
+   ADMIN CONFIG
 ========================= */
-async function verifyFirebaseToken(req, res, next) {
+const ADMIN_EMAIL = "admin@harambeeflow.com";
+
+/* =========================
+   FIREBASE AUTH + ADMIN GUARD
+========================= */
+async function verifyAdmin(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        error: "Unauthorized",
-      });
+      return res.status(401).json({ error: "No token provided" });
     }
 
     const idToken = authHeader.split("Bearer ")[1];
 
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decoded = await admin.auth().verifyIdToken(idToken);
 
-    req.user = decodedToken;
+    // 🔐 HARD ADMIN CHECK (SERVER ENFORCED)
+    if (!decoded.email || decoded.email !== ADMIN_EMAIL) {
+      return res.status(403).json({ error: "Access denied (not admin)" });
+    }
 
+    req.user = decoded;
     next();
 
   } catch (error) {
     console.error("Auth error:", error);
-
-    return res.status(401).json({
-      error: "Invalid token",
-    });
+    return res.status(401).json({ error: "Invalid token" });
   }
 }
 
@@ -89,7 +91,7 @@ async function getAccessToken() {
 }
 
 /* =========================
-   STK PUSH
+   STK PUSH (PUBLIC BUT SAFE)
 ========================= */
 app.post("/stkpush", async (req, res) => {
   try {
@@ -124,9 +126,7 @@ app.post("/stkpush", async (req, res) => {
     };
 
     const response = await axios.post(stkUrl, payload, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     await db.collection("donations").add({
@@ -142,32 +142,21 @@ app.post("/stkpush", async (req, res) => {
 
   } catch (error) {
     console.error(error.response?.data || error.message);
-
-    res.status(500).json({
-      error: "STK Push failed",
-      details: error.response?.data || error.message,
-    });
+    res.status(500).json({ error: "STK Push failed" });
   }
 });
 
 /* =========================
-   CALLBACK
+   CALLBACK (PUBLIC SAFE)
 ========================= */
 app.post("/callback", async (req, res) => {
   try {
-    console.log("🔥 CALLBACK RECEIVED:");
-    console.log(JSON.stringify(req.body, null, 2));
-
     const callback = req.body.Body?.stkCallback;
 
-    if (!callback) {
-      return res.json({ ResultCode: 0, ResultDesc: "Accepted" });
-    }
+    if (!callback) return res.json({ ResultCode: 0 });
 
     const checkoutRequestID = callback.CheckoutRequestID;
-    const resultCode = callback.ResultCode;
-
-    let status = resultCode === 0 ? "completed" : "failed";
+    const status = callback.ResultCode === 0 ? "completed" : "failed";
 
     const snapshot = await db
       .collection("donations")
@@ -180,45 +169,20 @@ app.post("/callback", async (req, res) => {
         callbackData: callback,
         updatedAt: new Date(),
       });
-
-      console.log("✅ Donation updated");
     }
 
-    res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+    res.json({ ResultCode: 0 });
 
   } catch (error) {
-    console.error("Callback error:", error);
+    console.error(error);
     res.status(500).json({ error: "Callback failed" });
   }
 });
 
 /* =========================
-   SECURED DONATIONS API
+   SECURE STATS (ADMIN ONLY)
 ========================= */
-app.get("/donations", verifyFirebaseToken, async (req, res) => {
-  try {
-    const snapshot = await db.collection("donations").get();
-
-    const donations = [];
-
-    snapshot.forEach(doc => {
-      donations.push({
-        id: doc.id,
-        ...doc.data(),
-      });
-    });
-
-    res.json(donations);
-
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch donations" });
-  }
-});
-
-/* =========================
-   SECURED STATS API
-========================= */
-app.get("/stats", verifyFirebaseToken, async (req, res) => {
+app.get("/stats", verifyAdmin, async (req, res) => {
   try {
     const snapshot = await db.collection("donations").get();
 
@@ -241,16 +205,30 @@ app.get("/stats", verifyFirebaseToken, async (req, res) => {
       donations.push({ id: doc.id, ...data });
     });
 
-    res.json({
-      total,
-      completed,
-      pending,
-      failed,
-      donations,
-    });
+    res.json({ total, completed, pending, failed, donations });
 
   } catch (error) {
-    res.status(500).json({ error: "Failed to load stats" });
+    res.status(500).json({ error: "Stats error" });
+  }
+});
+
+/* =========================
+   SECURE DONATIONS (ADMIN ONLY)
+========================= */
+app.get("/donations", verifyAdmin, async (req, res) => {
+  try {
+    const snapshot = await db.collection("donations").get();
+
+    const donations = [];
+
+    snapshot.forEach(doc => {
+      donations.push({ id: doc.id, ...doc.data() });
+    });
+
+    res.json(donations);
+
+  } catch (error) {
+    res.status(500).json({ error: "Fetch error" });
   }
 });
 
@@ -258,14 +236,13 @@ app.get("/stats", verifyFirebaseToken, async (req, res) => {
    HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
-  res.send("HarambeeFlow Backend Running 🚀");
+  res.send("HarambeeFlow Secure Backend 🚀");
 });
 
 /* =========================
    START SERVER
 ========================= */
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
