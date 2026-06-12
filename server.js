@@ -2,17 +2,29 @@ const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
 const admin = require("firebase-admin");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 
 app.use(express.json());
 
 /* =========================
-   CORS LOCK (FRONTEND ONLY)
+   CORS LOCK
 ========================= */
 app.use(cors({
   origin: "https://rrmayore.github.io"
 }));
+
+/* =========================
+   RATE LIMITING (ANTI-BOT)
+========================= */
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: "Too many requests, slow down" }
+});
+
+app.use("/stkpush", limiter);
 
 /* =========================
    FIREBASE INIT
@@ -28,12 +40,32 @@ admin.initializeApp({
 const db = admin.firestore();
 
 /* =========================
-   ADMIN CONFIG
+   RBAC (ROLE SYSTEM)
 ========================= */
-const ADMIN_EMAIL = "admin@harambeeflow.com";
+const USER_ROLES = {
+  "admin@harambeeflow.com": "admin",
+  "finance@harambeeflow.com": "finance",
+  "viewer@harambeeflow.com": "viewer"
+};
 
 /* =========================
-   FIREBASE AUTH + ADMIN GUARD (HARDENED)
+   AUDIT LOGS
+========================= */
+async function logAction(user, action) {
+  try {
+    await db.collection("audit_logs").add({
+      email: user.email,
+      role: user.role,
+      action,
+      time: new Date()
+    });
+  } catch (e) {
+    console.error("Audit log failed:", e);
+  }
+}
+
+/* =========================
+   FIREBASE AUTH + RBAC GUARD
 ========================= */
 async function verifyAdmin(req, res, next) {
   try {
@@ -47,20 +79,21 @@ async function verifyAdmin(req, res, next) {
 
     const decoded = await admin.auth().verifyIdToken(idToken);
 
-    // 🔐 HARD SECURITY CHECKS
-    if (!decoded) {
-      return res.status(401).json({ error: "Invalid token" });
+    if (!decoded?.email) {
+      return res.status(403).json({ error: "Invalid token email" });
     }
 
-    if (!decoded.email) {
-      return res.status(403).json({ error: "Email not found in token" });
+    const role = USER_ROLES[decoded.email];
+
+    if (!role) {
+      return res.status(403).json({ error: "No role assigned" });
     }
 
-    if (decoded.email !== ADMIN_EMAIL) {
-      return res.status(403).json({ error: "Access denied (not admin)" });
-    }
+    req.user = {
+      email: decoded.email,
+      role
+    };
 
-    req.user = decoded;
     next();
 
   } catch (error) {
@@ -70,7 +103,7 @@ async function verifyAdmin(req, res, next) {
 }
 
 /* =========================
-   BASIC INPUT VALIDATION (FRAUD PREVENTION)
+   INPUT VALIDATION
 ========================= */
 function validateSTKInput(req, res, next) {
   const { phone, amount } = req.body;
@@ -116,11 +149,23 @@ async function getAccessToken() {
 }
 
 /* =========================
-   STK PUSH (PUBLIC SAFE + VALIDATED)
+   STK PUSH (PROTECTED AGAINST ABUSE)
 ========================= */
 app.post("/stkpush", validateSTKInput, async (req, res) => {
   try {
     const { phone, amount } = req.body;
+
+    // 🔁 DUPLICATE PREVENTION
+    const existing = await db.collection("donations")
+      .where("phone", "==", phone)
+      .where("status", "==", "pending")
+      .get();
+
+    if (!existing.empty) {
+      return res.status(429).json({
+        error: "Pending transaction already exists"
+      });
+    }
 
     const token = await getAccessToken();
 
@@ -172,20 +217,21 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
 });
 
 /* =========================
-   CALLBACK (PUBLIC SAFE)
+   CALLBACK
 ========================= */
 app.post("/callback", async (req, res) => {
   try {
     const callback = req.body.Body?.stkCallback;
 
-    if (!callback) return res.json({ ResultCode: 0 });
+    if (!callback?.CheckoutRequestID) {
+      return res.status(400).json({ error: "Invalid callback" });
+    }
 
-    const checkoutRequestID = callback.CheckoutRequestID;
     const status = callback.ResultCode === 0 ? "completed" : "failed";
 
     const snapshot = await db
       .collection("donations")
-      .where("checkoutRequestID", "==", checkoutRequestID)
+      .where("checkoutRequestID", "==", callback.CheckoutRequestID)
       .get();
 
     if (!snapshot.empty) {
@@ -205,10 +251,16 @@ app.post("/callback", async (req, res) => {
 });
 
 /* =========================
-   SECURE STATS (ADMIN ONLY)
+   SECURE STATS (ADMIN + AUDIT)
 ========================= */
 app.get("/stats", verifyAdmin, async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Admins only" });
+    }
+
+    await logAction(req.user, "VIEW_STATS");
+
     const snapshot = await db.collection("donations").get();
 
     let total = 0;
@@ -238,10 +290,16 @@ app.get("/stats", verifyAdmin, async (req, res) => {
 });
 
 /* =========================
-   SECURE DONATIONS (ADMIN ONLY)
+   SECURE DONATIONS (ADMIN + FINANCE)
 ========================= */
 app.get("/donations", verifyAdmin, async (req, res) => {
   try {
+    if (!["admin", "finance"].includes(req.user.role)) {
+      return res.status(403).json({ error: "Not allowed" });
+    }
+
+    await logAction(req.user, "VIEW_DONATIONS");
+
     const snapshot = await db.collection("donations").get();
 
     const donations = [];
@@ -261,7 +319,7 @@ app.get("/donations", verifyAdmin, async (req, res) => {
    HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
-  res.send("HarambeeFlow Secure Backend 🚀");
+  res.send("HarambeeFlow Bank-Grade Backend 🚀");
 });
 
 /* =========================
