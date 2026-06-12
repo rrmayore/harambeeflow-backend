@@ -26,6 +26,19 @@ body {
   font-size: 20px;
 }
 
+/* BUTTON */
+button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.logout {
+  background: red;
+  color: white;
+}
+
 /* STATS */
 .stats {
   display: grid;
@@ -92,13 +105,48 @@ th {
   }
 }
 </style>
+
+<!-- 🔒 FIREBASE AUTH GUARD -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  // 🔑 PASTE YOUR REAL CONFIG HERE (same as login.html)
+  const firebaseConfig = {
+    apiKey: "PASTE_API_KEY",
+    authDomain: "PASTE_AUTH_DOMAIN",
+    projectId: "PASTE_PROJECT_ID",
+    storageBucket: "PASTE_STORAGE_BUCKET",
+    messagingSenderId: "PASTE_SENDER_ID",
+    appId: "PASTE_APP_ID"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  // 🔒 AUTH CHECK
+  onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      window.location.href = "login.html";
+    } else {
+      console.log("Admin logged in:", user.email);
+    }
+  });
+
+  // 🚪 LOGOUT FUNCTION
+  window.logout = async function () {
+    await signOut(auth);
+    window.location.href = "login.html";
+  };
+</script>
+
 </head>
 
 <body>
 
 <div class="header">
   <h1>💰 HarambeeFlow Admin Dashboard</h1>
-  <div>Live System</div>
+  <button class="logout" onclick="logout()">Logout</button>
 </div>
 
 <div class="stats">
