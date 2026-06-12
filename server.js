@@ -6,7 +6,15 @@ const admin = require("firebase-admin");
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+
+/* =========================
+   CORS SECURITY
+========================= */
+app.use(cors({
+  origin: [
+    "https://rrmayore.github.io"
+  ]
+}));
 
 /* =========================
    FIREBASE INIT
@@ -20,6 +28,36 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
+
+/* =========================
+   FIREBASE AUTH MIDDLEWARE
+========================= */
+async function verifyFirebaseToken(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    const idToken = authHeader.split("Bearer ")[1];
+
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+
+    req.user = decodedToken;
+
+    next();
+
+  } catch (error) {
+    console.error("Auth error:", error);
+
+    return res.status(401).json({
+      error: "Invalid token",
+    });
+  }
+}
 
 /* =========================
    DARAJA CONFIG
@@ -91,7 +129,6 @@ app.post("/stkpush", async (req, res) => {
       },
     });
 
-    // SAVE DONATION (PENDING)
     await db.collection("donations").add({
       phone,
       amount,
@@ -114,7 +151,7 @@ app.post("/stkpush", async (req, res) => {
 });
 
 /* =========================
-   CALLBACK (SAFE + FIXED)
+   CALLBACK
 ========================= */
 app.post("/callback", async (req, res) => {
   try {
@@ -145,8 +182,6 @@ app.post("/callback", async (req, res) => {
       });
 
       console.log("✅ Donation updated");
-    } else {
-      console.log("⚠️ Donation not found");
     }
 
     res.json({ ResultCode: 0, ResultDesc: "Accepted" });
@@ -158,9 +193,9 @@ app.post("/callback", async (req, res) => {
 });
 
 /* =========================
-   GET ALL DONATIONS (DASHBOARD)
+   SECURED DONATIONS API
 ========================= */
-app.get("/donations", async (req, res) => {
+app.get("/donations", verifyFirebaseToken, async (req, res) => {
   try {
     const snapshot = await db.collection("donations").get();
 
@@ -181,9 +216,9 @@ app.get("/donations", async (req, res) => {
 });
 
 /* =========================
-   STATS API (DASHBOARD PRO)
+   SECURED STATS API
 ========================= */
-app.get("/stats", async (req, res) => {
+app.get("/stats", verifyFirebaseToken, async (req, res) => {
   try {
     const snapshot = await db.collection("donations").get();
 
