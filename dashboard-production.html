@@ -102,14 +102,13 @@ th {
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-
   import {
     getAuth,
     onAuthStateChanged,
     signOut
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  // 🔑 FIREBASE CONFIG
+  // 🔑 Firebase Config (same project)
   const firebaseConfig = {
     apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
     authDomain: "harambeeflow.firebaseapp.com",
@@ -123,7 +122,9 @@ th {
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
 
-  // 🔒 AUTH GUARD
+  const ADMIN_EMAIL = "admin@harambeeflow.com"; // 🔐 CHANGE ONLY IF NEEDED
+
+  // 🔒 AUTH + ADMIN GUARD
   onAuthStateChanged(auth, async (user) => {
 
     if (!user) {
@@ -131,12 +132,17 @@ th {
       return;
     }
 
-    console.log("✅ Logged in:", user.email);
+    // 🔐 ADMIN CHECK
+    if (user.email !== ADMIN_EMAIL) {
+      alert("Access denied. Admin only.");
+      await signOut(auth);
+      window.location.href = "login.html";
+      return;
+    }
 
-    // 🔑 GET FIREBASE TOKEN
+    console.log("✅ Admin verified:", user.email);
+
     const token = await user.getIdToken();
-
-    // 🚀 LOAD SECURED DATA
     loadData(token);
   });
 
@@ -146,7 +152,7 @@ th {
     window.location.href = "login.html";
   };
 
-  // 📊 LOAD SECURED STATS
+  // 📊 LOAD DATA (SECURED API)
   async function loadData(token) {
 
     try {
@@ -160,58 +166,37 @@ th {
         }
       );
 
-      if (!res.ok) {
-        throw new Error("Unauthorized");
-      }
+      if (!res.ok) throw new Error("Unauthorized");
 
       const data = await res.json();
 
-      document.getElementById("total").innerText =
-        "KES " + data.total;
-
-      document.getElementById("completed").innerText =
-        data.completed;
-
-      document.getElementById("pending").innerText =
-        data.pending;
-
-      document.getElementById("failed").innerText =
-        data.failed;
+      document.getElementById("total").innerText = "KES " + data.total;
+      document.getElementById("completed").innerText = data.completed;
+      document.getElementById("pending").innerText = data.pending;
+      document.getElementById("failed").innerText = data.failed;
 
       const table = document.getElementById("table");
-
       table.innerHTML = "";
 
       data.donations.forEach(d => {
-
         table.innerHTML += `
           <tr>
             <td>${d.phone}</td>
             <td>${d.amount}</td>
-            <td>
-              <span class="status ${d.status}">
-                ${d.status}
-              </span>
-            </td>
+            <td><span class="status ${d.status}">${d.status}</span></td>
             <td>${d.checkoutRequestID}</td>
-            <td>
-              ${
-                d.createdAt
-                  ? new Date(
-                      d.createdAt._seconds * 1000
-                    ).toLocaleString()
-                  : ""
-              }
-            </td>
+            <td>${
+              d.createdAt
+                ? new Date(d.createdAt._seconds * 1000).toLocaleString()
+                : ""
+            }</td>
           </tr>
         `;
       });
 
-    } catch (error) {
-
-      console.error("Dashboard load error:", error);
-
-      alert("Unauthorized or backend error");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load dashboard data");
     }
   }
 
@@ -223,14 +208,10 @@ th {
 
 <div class="header">
   <h1>💰 HarambeeFlow Admin Dashboard</h1>
-
-  <button class="logout" onclick="logout()">
-    Logout
-  </button>
+  <button class="logout" onclick="logout()">Logout</button>
 </div>
 
 <div class="stats">
-
   <div class="card">
     <h2>Total Raised</h2>
     <p id="total">0</p>
@@ -250,13 +231,10 @@ th {
     <h2>Failed</h2>
     <p id="failed">0</p>
   </div>
-
 </div>
 
 <div class="table-container">
-
   <table>
-
     <thead>
       <tr>
         <th>Phone</th>
@@ -266,11 +244,8 @@ th {
         <th>Time</th>
       </tr>
     </thead>
-
     <tbody id="table"></tbody>
-
   </table>
-
 </div>
 
 </body>
