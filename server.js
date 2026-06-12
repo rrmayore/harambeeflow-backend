@@ -33,7 +33,7 @@ const db = admin.firestore();
 const ADMIN_EMAIL = "admin@harambeeflow.com";
 
 /* =========================
-   FIREBASE AUTH + ADMIN GUARD
+   FIREBASE AUTH + ADMIN GUARD (HARDENED)
 ========================= */
 async function verifyAdmin(req, res, next) {
   try {
@@ -47,8 +47,16 @@ async function verifyAdmin(req, res, next) {
 
     const decoded = await admin.auth().verifyIdToken(idToken);
 
-    // 🔐 HARD ADMIN CHECK (SERVER ENFORCED)
-    if (!decoded.email || decoded.email !== ADMIN_EMAIL) {
+    // 🔐 HARD SECURITY CHECKS
+    if (!decoded) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    if (!decoded.email) {
+      return res.status(403).json({ error: "Email not found in token" });
+    }
+
+    if (decoded.email !== ADMIN_EMAIL) {
       return res.status(403).json({ error: "Access denied (not admin)" });
     }
 
@@ -57,8 +65,25 @@ async function verifyAdmin(req, res, next) {
 
   } catch (error) {
     console.error("Auth error:", error);
-    return res.status(401).json({ error: "Invalid token" });
+    return res.status(401).json({ error: "Authentication failed" });
   }
+}
+
+/* =========================
+   BASIC INPUT VALIDATION (FRAUD PREVENTION)
+========================= */
+function validateSTKInput(req, res, next) {
+  const { phone, amount } = req.body;
+
+  if (!phone || !amount) {
+    return res.status(400).json({ error: "Phone and amount required" });
+  }
+
+  if (amount <= 0 || amount > 100000) {
+    return res.status(400).json({ error: "Invalid amount" });
+  }
+
+  next();
 }
 
 /* =========================
@@ -91,9 +116,9 @@ async function getAccessToken() {
 }
 
 /* =========================
-   STK PUSH (PUBLIC BUT SAFE)
+   STK PUSH (PUBLIC SAFE + VALIDATED)
 ========================= */
-app.post("/stkpush", async (req, res) => {
+app.post("/stkpush", validateSTKInput, async (req, res) => {
   try {
     const { phone, amount } = req.body;
 
