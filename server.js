@@ -16,7 +16,7 @@ app.use(cors({
 }));
 
 /* =========================
-   RATE LIMITING (ANTI-BOT)
+   RATE LIMITING
 ========================= */
 const limiter = rateLimit({
   windowMs: 60 * 1000,
@@ -40,7 +40,12 @@ admin.initializeApp({
 const db = admin.firestore();
 
 /* =========================
-   RBAC (ROLE SYSTEM)
+   🔐 ENTERPRISE SECRET KEY (NEW)
+========================= */
+const CALLBACK_SECRET = process.env.CALLBACK_SECRET;
+
+/* =========================
+   RBAC SYSTEM
 ========================= */
 const USER_ROLES = {
   "admin@harambeeflow.com": "admin",
@@ -65,7 +70,7 @@ async function logAction(user, action) {
 }
 
 /* =========================
-   FIREBASE AUTH + RBAC GUARD
+   AUTH + RBAC GUARD
 ========================= */
 async function verifyAdmin(req, res, next) {
   try {
@@ -103,7 +108,7 @@ async function verifyAdmin(req, res, next) {
 }
 
 /* =========================
-   INPUT VALIDATION
+   VALIDATION
 ========================= */
 function validateSTKInput(req, res, next) {
   const { phone, amount } = req.body;
@@ -149,13 +154,12 @@ async function getAccessToken() {
 }
 
 /* =========================
-   STK PUSH (PROTECTED AGAINST ABUSE)
+   STK PUSH
 ========================= */
 app.post("/stkpush", validateSTKInput, async (req, res) => {
   try {
     const { phone, amount } = req.body;
 
-    // 🔁 DUPLICATE PREVENTION
     const existing = await db.collection("donations")
       .where("phone", "==", phone)
       .where("status", "==", "pending")
@@ -217,10 +221,18 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
 });
 
 /* =========================
-   CALLBACK
+   CALLBACK (NOW ENTERPRISE-GUARDED)
 ========================= */
 app.post("/callback", async (req, res) => {
   try {
+
+    // 🔐 SECRET KEY VALIDATION (ENTERPRISE LAYER)
+    const secret = req.headers["x-callback-secret"];
+
+    if (!CALLBACK_SECRET || secret !== CALLBACK_SECRET) {
+      return res.status(403).json({ error: "Invalid callback secret" });
+    }
+
     const callback = req.body.Body?.stkCallback;
 
     if (!callback?.CheckoutRequestID) {
@@ -251,10 +263,11 @@ app.post("/callback", async (req, res) => {
 });
 
 /* =========================
-   SECURE STATS (ADMIN + AUDIT)
+   STATS (ADMIN ONLY)
 ========================= */
 app.get("/stats", verifyAdmin, async (req, res) => {
   try {
+
     if (req.user.role !== "admin") {
       return res.status(403).json({ error: "Admins only" });
     }
@@ -290,10 +303,11 @@ app.get("/stats", verifyAdmin, async (req, res) => {
 });
 
 /* =========================
-   SECURE DONATIONS (ADMIN + FINANCE)
+   DONATIONS (ADMIN + FINANCE)
 ========================= */
 app.get("/donations", verifyAdmin, async (req, res) => {
   try {
+
     if (!["admin", "finance"].includes(req.user.role)) {
       return res.status(403).json({ error: "Not allowed" });
     }
@@ -319,7 +333,7 @@ app.get("/donations", verifyAdmin, async (req, res) => {
    HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
-  res.send("HarambeeFlow Bank-Grade Backend 🚀");
+  res.send("HarambeeFlow Enterprise Backend 🚀");
 });
 
 /* =========================
