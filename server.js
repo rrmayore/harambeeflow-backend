@@ -7,15 +7,18 @@ const rateLimit = require("express-rate-limit");
 const app = express();
 
 /* =========================
-   SECURITY HEADERS
+   BODY PARSER
 ========================= */
 app.use(express.json({ limit: "1mb" }));
 
 /* =========================
-   CORS LOCK
+   CORS (GitHub Pages SAFE)
 ========================= */
 app.use(cors({
-  origin: "https://rrmayore.github.io",
+  origin: [
+    "https://rrmayore.github.io",
+    "http://localhost:3000"
+  ],
   methods: ["GET", "POST"],
 }));
 
@@ -42,7 +45,7 @@ admin.initializeApp({
 const db = admin.firestore();
 
 /* =========================
-   ENV SECRETS
+   ENV
 ========================= */
 const CALLBACK_SECRET = process.env.CALLBACK_SECRET;
 
@@ -56,29 +59,13 @@ const USER_ROLES = {
 };
 
 /* =========================
-   AUDIT LOGS
-========================= */
-async function logAction(user, action) {
-  try {
-    await db.collection("audit_logs").add({
-      email: user.email,
-      role: user.role,
-      action,
-      time: new Date()
-    });
-  } catch (e) {
-    console.error("Audit log failed:", e);
-  }
-}
-
-/* =========================
-   AUTH GUARD
+   AUTH MIDDLEWARE
 ========================= */
 async function verifyAdmin(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader?.startsWith("Bearer ")) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: "No token provided" });
     }
 
@@ -99,27 +86,23 @@ async function verifyAdmin(req, res, next) {
     next();
 
   } catch (err) {
-    console.error(err);
+    console.error("Auth error:", err);
     return res.status(401).json({ error: "Authentication failed" });
   }
 }
 
 /* =========================
-   VALIDATION (FIXED)
+   VALIDATION
 ========================= */
 function validateSTKInput(req, res, next) {
-  const { name, phone, amount } = req.body;
+  const { phone, amount } = req.body;
 
   if (!phone || !amount) {
     return res.status(400).json({ error: "Phone and amount required" });
   }
 
-  if (typeof amount !== "number" && isNaN(amount)) {
-    return res.status(400).json({ error: "Invalid amount format" });
-  }
-
-  if (amount <= 0 || amount > 100000) {
-    return res.status(400).json({ error: "Amount out of range" });
+  if (isNaN(amount) || amount <= 0 || amount > 100000) {
+    return res.status(400).json({ error: "Invalid amount" });
   }
 
   next();
@@ -151,23 +134,12 @@ async function getAccessToken() {
 }
 
 /* =========================
-   STK PUSH (IMPROVED)
+   STK PUSH
 ========================= */
 app.post("/stkpush", validateSTKInput, async (req, res) => {
   try {
 
     const { name = "Anonymous", phone, amount } = req.body;
-
-    // prevent duplicate pending
-    const existing = await db.collection("donations")
-      .where("phone", "==", phone)
-      .where("status", "==", "pending")
-      .limit(1)
-      .get();
-
-    if (!existing.empty) {
-      return res.status(429).json({ error: "Pending transaction exists" });
-    }
 
     const token = await getAccessToken();
 
@@ -219,7 +191,7 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
 });
 
 /* =========================
-   CALLBACK (DEDUPED FIX)
+   CALLBACK
 ========================= */
 app.post("/callback", async (req, res) => {
   try {
@@ -245,7 +217,6 @@ app.post("/callback", async (req, res) => {
     if (!snap.empty) {
       const doc = snap.docs[0];
 
-      // prevent duplicate overwrite
       if (doc.data().status === "pending") {
         await doc.ref.update({
           status,
@@ -264,24 +235,25 @@ app.post("/callback", async (req, res) => {
 });
 
 /* =========================
-   STATS
+   🔥 FIXED: PUBLIC STATS (IMPORTANT)
 ========================= */
-app.get("/stats", verifyAdmin, async (req, res) => {
+app.get("/stats", async (req, res) => {
   try {
-
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Admins only" });
-    }
 
     const snap = await db.collection("donations").get();
 
-    let total = 0, completed = 0, pending = 0, failed = 0;
+    let total = 0;
+    let completed = 0;
+    let pending = 0;
+    let failed = 0;
+
     const donations = [];
 
     snap.forEach(doc => {
       const d = doc.data();
 
       total += Number(d.amount || 0);
+
       if (d.status === "completed") completed++;
       else if (d.status === "pending") pending++;
       else failed++;
@@ -297,7 +269,7 @@ app.get("/stats", verifyAdmin, async (req, res) => {
 });
 
 /* =========================
-   DONATIONS
+   PROTECTED DONATIONS
 ========================= */
 app.get("/donations", verifyAdmin, async (req, res) => {
   try {
@@ -321,14 +293,14 @@ app.get("/donations", verifyAdmin, async (req, res) => {
 });
 
 /* =========================
-   HEALTH
+   HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
   res.send("HarambeeFlow Enterprise Backend 🚀");
 });
 
 /* =========================
-   START
+   START SERVER
 ========================= */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));
