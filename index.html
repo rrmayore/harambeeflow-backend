@@ -81,7 +81,7 @@ body{
   border:1px solid #1f2937;
   border-radius:12px;
   padding:12px;
-  height:160px;
+  height:180px;
   overflow:auto;
   font-size:13px;
   color:#cbd5e1;
@@ -103,7 +103,7 @@ body{
   width:260px;
   font-size:13px;
   border-radius:8px;
-  animation:fadeIn 0.4s ease;
+  animation:fadeIn 0.3s ease;
 }
 
 @keyframes fadeIn{
@@ -158,14 +158,16 @@ body{
   © 2026 HarambeeFlow AI
 </div>
 
-<!-- 🔥 SERVICE WORKER REGISTRATION -->
+<!-- 🔥 SERVICE WORKER -->
 <script>
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js");
+  navigator.serviceWorker.register("/sw.js")
+    .then(() => console.log("SW registered"))
+    .catch(err => console.log("SW error:", err));
 }
 </script>
 
-<!-- 🔥 PWA INSTALL LOGIC -->
+<!-- 🔥 INSTALL BUTTON -->
 <script>
 let deferredPrompt;
 
@@ -189,6 +191,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 <script>
 
 let lastCount = 0;
+let notifiedIds = new Set();
 
 function notify(msg){
   const box = document.getElementById("notifContainer");
@@ -209,10 +212,12 @@ async function load(){
     const res = await fetch("https://harambeeflow-backend.onrender.com/stats");
     const data = await res.json();
 
-    document.getElementById("total").innerText = "KES " + data.total;
-    document.getElementById("completed").innerText = data.completed;
-    document.getElementById("pending").innerText = data.pending;
-    document.getElementById("failed").innerText = data.failed;
+    if(!data || !data.donations) return;
+
+    document.getElementById("total").innerText = "KES " + (data.total || 0);
+    document.getElementById("completed").innerText = data.completed || 0;
+    document.getElementById("pending").innerText = data.pending || 0;
+    document.getElementById("failed").innerText = data.failed || 0;
 
     const feed = document.getElementById("feed");
     feed.innerHTML = "";
@@ -220,16 +225,22 @@ async function load(){
     const recent = data.donations.slice(-10).reverse();
 
     recent.forEach(d => {
+
       const item = document.createElement("div");
-      item.innerText = `💰 ${d.name || "Anonymous"} • ${d.phone} paid KES ${d.amount} (${d.status})`;
+      item.innerText = `💰 ${d.name || "Anonymous"} • ${d.phone || "N/A"} paid KES ${d.amount || 0} (${d.status || "pending"})`;
       feed.appendChild(item);
+
     });
 
-    // 🔔 NEW DONATION ALERT
-    if(data.donations.length > lastCount){
-      const latest = data.donations[data.donations.length - 1];
-      notify(`💰 New Donation: ${latest.name || "Anonymous"} donated KES ${latest.amount}`);
-      lastCount = data.donations.length;
+    // 🔔 SAFE NEW DONATION ALERT (no duplicates)
+    const latest = data.donations[data.donations.length - 1];
+
+    if(latest && !notifiedIds.has(latest.checkoutRequestID)){
+
+      notifiedIds.add(latest.checkoutRequestID);
+
+      notify(`💰 New Donation: ${latest.name || "Anonymous"} - KES ${latest.amount || 0}`);
+
     }
 
   } catch(err){
