@@ -12,6 +12,7 @@ body {
   color: white;
 }
 
+/* HEADER */
 .header {
   padding: 20px;
   background: #111827;
@@ -25,6 +26,7 @@ body {
   font-size: 20px;
 }
 
+/* BUTTON */
 button {
   padding: 8px 12px;
   border: none;
@@ -37,6 +39,7 @@ button {
   color: white;
 }
 
+/* STATS */
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -61,8 +64,16 @@ button {
   margin: 10px 0 0;
 }
 
+/* MAIN LAYOUT (NEW AI STUDIO STYLE) */
+.container {
+  display: flex;
+  gap: 10px;
+}
+
+/* TABLE */
 .table-container {
   padding: 20px;
+  flex: 1;
 }
 
 table {
@@ -83,6 +94,7 @@ th {
   background: #1f2937;
 }
 
+/* STATUS */
 .status {
   padding: 5px 10px;
   border-radius: 5px;
@@ -93,6 +105,47 @@ th {
 .pending { background: orange; }
 .failed { background: red; }
 
+/* LIVE FEED PANEL */
+.feed {
+  width: 320px;
+  background: #0b1220;
+  border-left: 1px solid #1f2937;
+  height: calc(100vh - 160px);
+  overflow-y: auto;
+  padding: 15px;
+}
+
+.feed h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #22c55e;
+}
+
+/* MESSAGE CARD */
+.msg {
+  background: #111827;
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #1f2937;
+}
+
+.msg .top {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.msg .body {
+  margin-top: 5px;
+  font-size: 13px;
+}
+
+.amount {
+  color: #22c55e;
+  font-weight: bold;
+}
+
+/* TOAST */
 .toast {
   position: fixed;
   top: 20px;
@@ -173,7 +226,6 @@ function showToast(message) {
   div.className = "toast";
   div.innerText = message;
   document.body.appendChild(div);
-
   setTimeout(() => div.remove(), 4000);
 }
 
@@ -182,6 +234,9 @@ function startRealtimeDashboard() {
 
   const donationsRef = collection(db, "donations");
 
+  const table = document.getElementById("table");
+  const feedBox = document.getElementById("feedBox");
+
   onSnapshot(donationsRef, (snapshot) => {
 
     let total = 0;
@@ -189,8 +244,8 @@ function startRealtimeDashboard() {
     let pending = 0;
     let failed = 0;
 
-    const table = document.getElementById("table");
     table.innerHTML = "";
+    feedBox.innerHTML = "";
 
     snapshot.forEach(doc => {
       const d = doc.data();
@@ -201,13 +256,13 @@ function startRealtimeDashboard() {
       else if (d.status === "pending") pending++;
       else if (d.status === "failed") failed++;
 
-      // NEW DONATION TOAST (NAME FIXED)
+      /* TOAST */
       if (!seen.has(doc.id)) {
         seen.add(doc.id);
-
         showToast(`💰 ${d.name || "Anonymous"} donated KES ${d.amount}`);
       }
 
+      /* TABLE */
       table.innerHTML += `
         <tr>
           <td>${d.name || "Anonymous"}</td>
@@ -222,6 +277,22 @@ function startRealtimeDashboard() {
           }</td>
         </tr>
       `;
+
+      /* LIVE FEED (WHATSAPP STYLE) */
+      const time = d.createdAt
+        ? new Date(d.createdAt._seconds * 1000).toLocaleTimeString()
+        : "now";
+
+      const div = document.createElement("div");
+      div.className = "msg";
+      div.innerHTML = `
+        <div class="top">${d.name || "Anonymous"} • ${time}</div>
+        <div class="body">
+          Donated <span class="amount">KES ${d.amount}</span> via M-PESA
+        </div>
+      `;
+
+      feedBox.prepend(div);
     });
 
     document.getElementById("total").innerText = "KES " + total;
@@ -231,7 +302,6 @@ function startRealtimeDashboard() {
 
   });
 }
-
 </script>
 </head>
 
@@ -264,20 +334,29 @@ function startRealtimeDashboard() {
   </div>
 </div>
 
-<div class="table-container">
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Phone</th>
-        <th>Amount</th>
-        <th>Status</th>
-        <th>Checkout ID</th>
-        <th>Time</th>
-      </tr>
-    </thead>
-    <tbody id="table"></tbody>
-  </table>
+<div class="container">
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Checkout ID</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody id="table"></tbody>
+    </table>
+  </div>
+
+  <div class="feed">
+    <h3>🔴 Live Donation Feed</h3>
+    <div id="feedBox"></div>
+  </div>
+
 </div>
 
 </body>
