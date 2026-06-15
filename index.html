@@ -123,24 +123,18 @@ body{
 
 <body>
 
-<!-- NOTIFICATIONS -->
 <div id="notifContainer"></div>
 
-<!-- HEADER -->
 <div class="header">
   <div class="logo">Harambee<span>Flow AI</span></div>
-
-  <!-- PWA INSTALL BUTTON -->
   <button id="installBtn">⬇ Install App</button>
 </div>
 
-<!-- HERO -->
 <div class="hero">
   <h1>Live M-PESA Fundraising System</h1>
   <p>Real-time donations, instant updates, and transparent tracking for communities.</p>
 </div>
 
-<!-- STATS -->
 <div class="stats">
   <div class="stat"><h2 id="total">KES 0</h2><p>Total</p></div>
   <div class="stat"><h2 id="completed">0</h2><p>Completed</p></div>
@@ -148,7 +142,6 @@ body{
   <div class="stat"><h2 id="failed">0</h2><p>Failed</p></div>
 </div>
 
-<!-- FEED -->
 <div class="feed">
   <h3 style="color:#22c55e">Live Feed</h3>
   <div class="feed-box" id="feed"></div>
@@ -158,7 +151,7 @@ body{
   © 2026 HarambeeFlow AI
 </div>
 
-<!-- 🔥 SERVICE WORKER -->
+<!-- SERVICE WORKER -->
 <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js")
@@ -167,7 +160,7 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 
-<!-- 🔥 INSTALL BUTTON -->
+<!-- PWA INSTALL -->
 <script>
 let deferredPrompt;
 
@@ -187,10 +180,9 @@ window.addEventListener("beforeinstallprompt", (e) => {
 });
 </script>
 
-<!-- 🔥 APP LOGIC -->
+<!-- APP LOGIC -->
 <script>
 
-let lastCount = 0;
 let notifiedIds = new Set();
 
 function notify(msg){
@@ -201,7 +193,6 @@ function notify(msg){
   div.innerText = msg;
 
   box.appendChild(div);
-
   setTimeout(() => div.remove(), 4000);
 }
 
@@ -225,22 +216,17 @@ async function load(){
     const recent = data.donations.slice(-10).reverse();
 
     recent.forEach(d => {
-
       const item = document.createElement("div");
       item.innerText = `💰 ${d.name || "Anonymous"} • ${d.phone || "N/A"} paid KES ${d.amount || 0} (${d.status || "pending"})`;
       feed.appendChild(item);
-
     });
 
-    // 🔔 SAFE NEW DONATION ALERT (no duplicates)
     const latest = data.donations[data.donations.length - 1];
 
-    if(latest && !notifiedIds.has(latest.checkoutRequestID)){
-
+    if(latest && latest.checkoutRequestID && !notifiedIds.has(latest.checkoutRequestID)){
       notifiedIds.add(latest.checkoutRequestID);
 
       notify(`💰 New Donation: ${latest.name || "Anonymous"} - KES ${latest.amount || 0}`);
-
     }
 
   } catch(err){
