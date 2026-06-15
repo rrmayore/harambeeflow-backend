@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow Fintech v5 Enterprise</title>
+<title>HarambeeFlow Fintech V5 Enterprise</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
@@ -32,7 +32,6 @@ body{
   font-weight:bold;
   margin-bottom:20px;
 }
-
 .brand span{color:#22c55e;}
 
 .nav button{
@@ -45,9 +44,9 @@ body{
   border-radius:8px;
   cursor:pointer;
 }
-
 .nav button:hover{background:#1f2937;}
 
+/* MAIN */
 .main{flex:1;padding:20px;}
 
 .page{display:none;}
@@ -59,16 +58,15 @@ body{
   grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
   gap:10px;
 }
-
 .card{
   background:#111827;
   padding:15px;
   border-radius:10px;
   border:1px solid #1f2937;
 }
-
 .card h2{color:#22c55e;margin:0;}
 
+/* FEED */
 .feed{
   margin-top:20px;
   background:#0f172a;
@@ -90,14 +88,12 @@ body{
   align-items:center;
   z-index:10;
 }
-
 .loginCard{
   background:#111827;
   padding:20px;
   border-radius:10px;
   width:320px;
 }
-
 input{
   width:100%;
   padding:10px;
@@ -107,7 +103,6 @@ input{
   color:white;
   border-radius:6px;
 }
-
 button.primary{
   width:100%;
   background:#22c55e;
@@ -119,6 +114,7 @@ button.primary{
   cursor:pointer;
 }
 
+/* CHART */
 canvas{
   background:#0f172a;
   border:1px solid #1f2937;
@@ -129,7 +125,7 @@ canvas{
 /* LOADING */
 .loading{
   text-align:center;
-  margin-top:20px;
+  margin-top:10px;
   opacity:0.7;
 }
 </style>
@@ -164,7 +160,6 @@ canvas{
 
 <!-- DASHBOARD -->
 <div id="dashboard" class="page active">
-
   <h2>Dashboard</h2>
   <div class="loading" id="loading">Loading live data...</div>
 
@@ -174,7 +169,6 @@ canvas{
     <div class="card"><h2 id="pending">0</h2><p>Pending</p></div>
     <div class="card"><h2 id="failed">0</h2><p>Failed</p></div>
   </div>
-
 </div>
 
 <!-- ANALYTICS -->
@@ -212,8 +206,8 @@ let isLoggedIn = false;
 async function login(){
   try{
     await auth.signInWithEmailAndPassword(
-      email.value,
-      password.value
+      document.getElementById("email").value,
+      document.getElementById("password").value
     );
   }catch(err){
     alert("Login failed");
@@ -226,7 +220,7 @@ function logout(){
   auth.signOut();
 }
 
-/* AUTH */
+/* AUTH STATE */
 auth.onAuthStateChanged(user=>{
   isLoggedIn = !!user;
 
@@ -244,7 +238,7 @@ function showPage(page){
   document.getElementById(page).classList.add('active');
 }
 
-/* LOAD */
+/* LOAD DATA */
 async function load(){
 
   if(!isLoggedIn) return;
@@ -256,11 +250,12 @@ async function load(){
 
     document.getElementById("loading").style.display = "none";
 
-    total.innerText = "KES " + data.total;
-    completed.innerText = data.completed;
-    pending.innerText = data.pending;
-    failed.innerText = data.failed;
+    document.getElementById("total").innerText = "KES " + data.total;
+    document.getElementById("completed").innerText = data.completed;
+    document.getElementById("pending").innerText = data.pending;
+    document.getElementById("failed").innerText = data.failed;
 
+    const feedBox = document.getElementById("feedBox");
     feedBox.innerHTML = "";
 
     data.donations.slice(-15).reverse().forEach(d=>{
@@ -269,18 +264,19 @@ async function load(){
       feedBox.appendChild(div);
     });
 
-    const totals = data.donations.slice(-10).map(d=>Number(d.amount||0));
+    const totals = data.donations.slice(-10).map(d=>Number(d.amount || 0));
 
     if(chart) chart.destroy();
 
-    chart = new Chart(chartCanvas(), {
+    chart = new Chart(document.getElementById("chart"), {
       type:"line",
       data:{
         labels: totals.map((_,i)=>"Tx "+(i+1)),
         datasets:[{
           label:"Revenue",
-          data:totals,
-          borderColor:"#22c55e"
+          data: totals,
+          borderColor:"#22c55e",
+          backgroundColor:"rgba(34,197,94,0.2)"
         }]
       }
     });
@@ -288,10 +284,6 @@ async function load(){
   }catch(err){
     console.log("LOAD ERROR", err);
   }
-}
-
-function chartCanvas(){
-  return document.getElementById("chart");
 }
 
 setInterval(load,5000);
