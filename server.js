@@ -7,7 +7,7 @@ const rateLimit = require("express-rate-limit");
 const app = express();
 
 /* =========================
-   ENV DEBUG (RENDER FIX)
+   ENV DEBUG (RENDER)
 ========================= */
 console.log("🔥 ENV CHECK:", {
   project: !!process.env.FIREBASE_PROJECT_ID,
@@ -43,7 +43,7 @@ app.use("/stkpush", rateLimit({
 }));
 
 /* =========================
-   SAFE FIREBASE INIT
+   FIREBASE INIT (SAFE)
 ========================= */
 if (
   !process.env.FIREBASE_PROJECT_ID ||
@@ -74,12 +74,35 @@ try {
 }
 
 /* =========================
-   ENV
+   CALLBACK SECRET
 ========================= */
 const CALLBACK_SECRET = process.env.CALLBACK_SECRET;
 
 /* =========================
-   PUBLIC STATS (FIXED)
+   🔥 REALTIME DONATIONS (NEW)
+========================= */
+app.get("/realtime-donations", async (req, res) => {
+  try {
+    const snap = await db.collection("donations")
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+
+    const data = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
+
+    res.json(data);
+
+  } catch (err) {
+    console.error("REALTIME ERROR:", err);
+    res.status(500).json({ error: "Realtime fetch failed" });
+  }
+});
+
+/* =========================
+   PUBLIC STATS (ENTERPRISE SAFE)
 ========================= */
 app.get("/stats", async (req, res) => {
   try {
@@ -120,7 +143,7 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   START
+   START SERVER
 ========================= */
 const PORT = process.env.PORT || 3000;
 
