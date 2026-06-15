@@ -21,24 +21,6 @@ body {
   align-items: center;
 }
 
-.header h1 {
-  margin: 0;
-  font-size: 20px;
-}
-
-/* BUTTON */
-button {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.logout {
-  background: red;
-  color: white;
-}
-
 /* STATS */
 .stats {
   display: grid;
@@ -54,17 +36,7 @@ button {
   text-align: center;
 }
 
-.card h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.card p {
-  font-size: 22px;
-  margin: 10px 0 0;
-}
-
-/* MAIN LAYOUT (NEW AI STUDIO STYLE) */
+/* LAYOUT */
 .container {
   display: flex;
   gap: 10px;
@@ -87,25 +59,9 @@ table {
 th, td {
   padding: 12px;
   border-bottom: 1px solid #1f2937;
-  text-align: left;
 }
 
-th {
-  background: #1f2937;
-}
-
-/* STATUS */
-.status {
-  padding: 5px 10px;
-  border-radius: 5px;
-  font-size: 12px;
-}
-
-.completed { background: green; }
-.pending { background: orange; }
-.failed { background: red; }
-
-/* LIVE FEED PANEL */
+/* FEED */
 .feed {
   width: 320px;
   background: #0b1220;
@@ -115,13 +71,6 @@ th {
   padding: 15px;
 }
 
-.feed h3 {
-  margin: 0 0 10px 0;
-  font-size: 14px;
-  color: #22c55e;
-}
-
-/* MESSAGE CARD */
 .msg {
   background: #111827;
   padding: 10px;
@@ -130,20 +79,15 @@ th {
   border: 1px solid #1f2937;
 }
 
-.msg .top {
+/* STATUS */
+.status {
+  padding: 5px 10px;
+  border-radius: 5px;
   font-size: 12px;
-  color: #94a3b8;
 }
-
-.msg .body {
-  margin-top: 5px;
-  font-size: 13px;
-}
-
-.amount {
-  color: #22c55e;
-  font-weight: bold;
-}
+.completed { background: green; }
+.pending { background: orange; }
+.failed { background: red; }
 
 /* TOAST */
 .toast {
@@ -152,186 +96,26 @@ th {
   right: 20px;
   background: #16a34a;
   color: white;
-  padding: 12px 16px;
+  padding: 12px;
   border-radius: 8px;
   z-index: 9999;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 </style>
 
-<script type="module">
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getAuth,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-import {
-  getFirestore,
-  collection,
-  onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
-  authDomain: "harambeeflow.firebaseapp.com",
-  projectId: "harambeeflow",
-  storageBucket: "harambeeflow.firebasestorage.app",
-  messagingSenderId: "991042439020",
-  appId: "1:991042439020:web:f31c474633b26c52121549",
-  measurementId: "G-X131DGXWVJ"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-const ADMIN_EMAIL = "admin@harambeeflow.com";
-
-let seen = new Set();
-
-/* AUTH */
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = "login.html";
-    return;
-  }
-
-  if (user.email !== ADMIN_EMAIL) {
-    alert("Access denied. Admin only.");
-    await signOut(auth);
-    window.location.href = "login.html";
-    return;
-  }
-
-  startRealtimeDashboard();
-});
-
-/* LOGOUT */
-window.logout = async function () {
-  await signOut(auth);
-  window.location.href = "login.html";
-};
-
-/* TOAST */
-function showToast(message) {
-  const div = document.createElement("div");
-  div.className = "toast";
-  div.innerText = message;
-  document.body.appendChild(div);
-  setTimeout(() => div.remove(), 4000);
-}
-
-/* REALTIME */
-function startRealtimeDashboard() {
-
-  const donationsRef = collection(db, "donations");
-
-  const table = document.getElementById("table");
-  const feedBox = document.getElementById("feedBox");
-
-  onSnapshot(donationsRef, (snapshot) => {
-
-    let total = 0;
-    let completed = 0;
-    let pending = 0;
-    let failed = 0;
-
-    table.innerHTML = "";
-    feedBox.innerHTML = "";
-
-    snapshot.forEach(doc => {
-      const d = doc.data();
-
-      total += Number(d.amount || 0);
-
-      if (d.status === "completed") completed++;
-      else if (d.status === "pending") pending++;
-      else if (d.status === "failed") failed++;
-
-      /* TOAST */
-      if (!seen.has(doc.id)) {
-        seen.add(doc.id);
-        showToast(`💰 ${d.name || "Anonymous"} donated KES ${d.amount}`);
-      }
-
-      /* TABLE */
-      table.innerHTML += `
-        <tr>
-          <td>${d.name || "Anonymous"}</td>
-          <td>${d.phone}</td>
-          <td>${d.amount}</td>
-          <td><span class="status ${d.status}">${d.status}</span></td>
-          <td>${d.checkoutRequestID}</td>
-          <td>${
-            d.createdAt
-              ? new Date(d.createdAt._seconds * 1000).toLocaleString()
-              : ""
-          }</td>
-        </tr>
-      `;
-
-      /* LIVE FEED (WHATSAPP STYLE) */
-      const time = d.createdAt
-        ? new Date(d.createdAt._seconds * 1000).toLocaleTimeString()
-        : "now";
-
-      const div = document.createElement("div");
-      div.className = "msg";
-      div.innerHTML = `
-        <div class="top">${d.name || "Anonymous"} • ${time}</div>
-        <div class="body">
-          Donated <span class="amount">KES ${d.amount}</span> via M-PESA
-        </div>
-      `;
-
-      feedBox.prepend(div);
-    });
-
-    document.getElementById("total").innerText = "KES " + total;
-    document.getElementById("completed").innerText = completed;
-    document.getElementById("pending").innerText = pending;
-    document.getElementById("failed").innerText = failed;
-
-  });
-}
-</script>
 </head>
 
 <body>
 
 <div class="header">
   <h1>💰 HarambeeFlow Admin Dashboard</h1>
-  <button class="logout" onclick="logout()">Logout</button>
+  <button onclick="logout()">Logout</button>
 </div>
 
 <div class="stats">
-  <div class="card">
-    <h2>Total Raised</h2>
-    <p id="total">0</p>
-  </div>
-
-  <div class="card">
-    <h2>Completed</h2>
-    <p id="completed">0</p>
-  </div>
-
-  <div class="card">
-    <h2>Pending</h2>
-    <p id="pending">0</p>
-  </div>
-
-  <div class="card">
-    <h2>Failed</h2>
-    <p id="failed">0</p>
-  </div>
+  <div class="card"><h2>Total</h2><p id="total">0</p></div>
+  <div class="card"><h2>Completed</h2><p id="completed">0</p></div>
+  <div class="card"><h2>Pending</h2><p id="pending">0</p></div>
+  <div class="card"><h2>Failed</h2><p id="failed">0</p></div>
 </div>
 
 <div class="container">
@@ -344,7 +128,7 @@ function startRealtimeDashboard() {
           <th>Phone</th>
           <th>Amount</th>
           <th>Status</th>
-          <th>Checkout ID</th>
+          <th>Checkout</th>
           <th>Time</th>
         </tr>
       </thead>
@@ -353,11 +137,122 @@ function startRealtimeDashboard() {
   </div>
 
   <div class="feed">
-    <h3>🔴 Live Donation Feed</h3>
+    <h3>🔴 Live Feed</h3>
     <div id="feedBox"></div>
   </div>
 
 </div>
+
+<!-- 🔊 SOUND -->
+<audio id="alertSound">
+  <source src="assets/mpesa.mp3" type="audio/mpeg">
+</audio>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import {
+  getFirestore, collection, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
+  authDomain: "harambeeflow.firebaseapp.com",
+  projectId: "harambeeflow"
+});
+
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const ADMIN_EMAIL = "admin@harambeeflow.com";
+let seen = new Set();
+
+onAuthStateChanged(auth, (user) => {
+  if (!user || user.email !== ADMIN_EMAIL) {
+    window.location.href = "login.html";
+  } else {
+    start();
+  }
+});
+
+window.logout = () => signOut(auth);
+
+function toast(msg){
+  const d = document.createElement("div");
+  d.className = "toast";
+  d.innerText = msg;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),3000);
+}
+
+function playSound(){
+  const a = document.getElementById("alertSound");
+  a.currentTime = 0;
+  a.play().catch(()=>{});
+}
+
+function start(){
+
+  const ref = collection(db,"donations");
+
+  onSnapshot(ref,(snap)=>{
+
+    let total=0, completed=0, pending=0, failed=0;
+
+    const table = document.getElementById("table");
+    const feed = document.getElementById("feedBox");
+
+    table.innerHTML="";
+
+    snap.forEach(doc=>{
+
+      const d = doc.data();
+      total += Number(d.amount||0);
+
+      if(d.status==="completed") completed++;
+      else if(d.status==="pending") pending++;
+      else failed++;
+
+      const isNew = !seen.has(doc.id);
+      if(isNew){
+        seen.add(doc.id);
+        toast(`💰 ${d.name||"Anonymous"} donated KES ${d.amount}`);
+        playSound();
+      }
+
+      table.innerHTML += `
+        <tr>
+          <td>${d.name||"Anonymous"}</td>
+          <td>${d.phone}</td>
+          <td>${d.amount}</td>
+          <td><span class="status ${d.status}">${d.status}</span></td>
+          <td>${d.checkoutRequestID||""}</td>
+          <td>${d.createdAt? new Date(d.createdAt._seconds*1000).toLocaleString():""}</td>
+        </tr>
+      `;
+
+      const msg = document.createElement("div");
+      msg.className="msg";
+      msg.innerHTML = `
+        <b>${d.name||"Anonymous"}</b><br>
+        Donated <span style="color:#22c55e">KES ${d.amount}</span>
+      `;
+
+      feed.prepend(msg);
+    });
+
+    document.getElementById("total").innerText="KES "+total;
+    document.getElementById("completed").innerText=completed;
+    document.getElementById("pending").innerText=pending;
+    document.getElementById("failed").innerText=failed;
+  });
+}
+
+</script>
 
 </body>
 </html>
