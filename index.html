@@ -3,142 +3,159 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow AI</title>
+<title>HarambeeFlow AI Dashboard</title>
 
 <style>
 body{
   margin:0;
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg,#0f172a,#020617);
+  font-family:Arial;
+  background:#0f172a;
   color:white;
 }
 
-/* HEADER */
-.header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:18px 20px;
-  background:#0b1220;
-  border-bottom:1px solid #1f2937;
-}
-
-.logo{
-  font-size:20px;
-  font-weight:bold;
-}
-.logo span{color:#22c55e;}
-
-/* HERO */
-.hero{
-  text-align:center;
-  padding:30px 15px;
-}
-.hero h1{font-size:32px;}
-.hero p{color:#94a3b8;}
-
-/* STATS GRID */
-.stats{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-  gap:12px;
+/* SIDEBAR */
+.sidebar{
+  position:fixed;
+  left:0;
+  top:0;
+  width:220px;
+  height:100%;
+  background:#111827;
   padding:20px;
+  border-right:1px solid #1f2937;
+}
+
+.sidebar h2{
+  color:#22c55e;
+}
+
+.nav button{
+  display:block;
+  width:100%;
+  margin:10px 0;
+  padding:10px;
+  background:#0b1220;
+  border:1px solid #1f2937;
+  color:white;
+  cursor:pointer;
+  border-radius:8px;
+}
+
+.nav button:hover{
+  background:#22c55e;
+  color:black;
+}
+
+/* MAIN */
+.main{
+  margin-left:240px;
+  padding:20px;
+}
+
+/* CARDS */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:12px;
 }
 
 .card{
-  background: rgba(17,24,39,0.8);
-  border:1px solid #1f2937;
-  padding:18px;
-  border-radius:14px;
-  text-align:center;
-  backdrop-filter: blur(8px);
-}
-
-.card h2{margin:5px 0;}
-.total{color:#22c55e;}
-.ok{color:#10b981;}
-.pending{color:#facc15;}
-.failed{color:#ef4444;}
-
-/* FEED */
-.feed{
-  padding:20px;
-}
-
-.feed-box{
-  background:#0b1220;
-  border:1px solid #1f2937;
+  background:#111827;
+  padding:15px;
   border-radius:12px;
-  padding:12px;
+  border:1px solid #1f2937;
+}
+
+h1,h2{
+  color:#22c55e;
+}
+
+/* PAGES */
+.page{
+  display:none;
+}
+
+.page.active{
+  display:block;
+}
+
+.feed{
+  background:#0b1220;
+  padding:10px;
+  border-radius:10px;
   height:300px;
   overflow:auto;
-}
-
-/* ITEM */
-.item{
-  padding:10px;
-  margin-bottom:8px;
-  border-radius:8px;
-  background:#111827;
-  display:flex;
-  justify-content:space-between;
-  font-size:13px;
-}
-
-.badge{
-  padding:3px 8px;
-  border-radius:6px;
-  font-size:11px;
-}
-
-.completed{background:#065f46;color:#34d399;}
-.pendingB{background:#92400e;color:#fbbf24;}
-.failedB{background:#7f1d1d;color:#f87171;}
-
-.footer{
-  text-align:center;
-  padding:20px;
-  color:#64748b;
-  font-size:12px;
 }
 </style>
 </head>
 
 <body>
 
-<div class="header">
-  <div class="logo">Harambee<span>Flow AI</span></div>
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <h2>HarambeeFlow</h2>
+  <div class="nav">
+    <button onclick="showPage('dashboard')">Dashboard</button>
+    <button onclick="showPage('donations')">Donations</button>
+    <button onclick="showPage('analytics')">Analytics</button>
+    <button onclick="showPage('settings')">Settings</button>
+  </div>
 </div>
 
-<div class="hero">
-  <h1>Live M-PESA Fundraising</h1>
-  <p>Real-time donations and transparent tracking system</p>
-</div>
+<!-- MAIN -->
+<div class="main">
 
-<!-- STATS -->
-<div class="stats">
-  <div class="card"><h2 class="total" id="total">KES 0</h2><p>Total Raised</p></div>
-  <div class="card"><h2 class="ok" id="completed">0</h2><p>Completed</p></div>
-  <div class="card"><h2 class="pending" id="pending">0</h2><p>Pending</p></div>
-  <div class="card"><h2 class="failed" id="failed">0</h2><p>Failed</p></div>
-</div>
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="page active">
+    <h1>Dashboard</h1>
 
-<!-- FEED -->
-<div class="feed">
-  <h3>Live Feed</h3>
-  <div class="feed-box" id="feed"></div>
-</div>
+    <div class="grid">
+      <div class="card"><h2 id="total">KES 0</h2><p>Total</p></div>
+      <div class="card"><h2 id="completed">0</h2><p>Completed</p></div>
+      <div class="card"><h2 id="pending">0</h2><p>Pending</p></div>
+      <div class="card"><h2 id="failed">0</h2><p>Failed</p></div>
+    </div>
 
-<div class="footer">
-  © 2026 HarambeeFlow AI
+    <h3>Live Feed</h3>
+    <div class="feed" id="feed"></div>
+  </div>
+
+  <!-- DONATIONS PAGE -->
+  <div id="donations" class="page">
+    <h1>Donations</h1>
+    <div id="donationList" class="feed"></div>
+  </div>
+
+  <!-- ANALYTICS -->
+  <div id="analytics" class="page">
+    <h1>Analytics</h1>
+    <div class="card">
+      <p>Coming soon: charts, trends, donor behavior</p>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="settings" class="page">
+    <h1>Settings</h1>
+    <div class="card">
+      <p>Backend: Connected</p>
+      <p>API: Active</p>
+    </div>
+  </div>
+
 </div>
 
 <script>
 
+/* PAGE SWITCHER */
+function showPage(page){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(page).classList.add('active');
+}
+
+/* LOAD DATA */
 async function load(){
-
   try{
-
     const res = await fetch("https://harambeeflow-backend.onrender.com/stats");
     const data = await res.json();
 
@@ -148,34 +165,27 @@ async function load(){
     document.getElementById("failed").innerText = data.failed;
 
     const feed = document.getElementById("feed");
+    const list = document.getElementById("donationList");
+
     feed.innerHTML = "";
+    list.innerHTML = "";
 
-    const recent = data.donations.slice(-12).reverse();
+    data.donations.slice(-15).reverse().forEach(d => {
 
-    recent.forEach(d => {
+      const text = `💰 ${d.name || "Anonymous"} • ${d.phone} • KES ${d.amount} (${d.status})`;
 
-      let statusClass = "pendingB";
-      if(d.status === "completed") statusClass = "completed";
-      if(d.status === "failed") statusClass = "failedB";
+      const div1 = document.createElement("div");
+      div1.innerText = text;
+      feed.appendChild(div1);
 
-      const div = document.createElement("div");
-      div.className = "item";
+      const div2 = document.createElement("div");
+      div2.innerText = text;
+      list.appendChild(div2);
 
-      div.innerHTML = `
-        <div>
-          💰 ${d.name || "Anonymous"} • ${d.phone || "N/A"}<br/>
-          <small>KES ${d.amount}</small>
-        </div>
-        <div class="badge ${statusClass}">
-          ${d.status}
-        </div>
-      `;
-
-      feed.appendChild(div);
     });
 
-  } catch(err){
-    console.log(err);
+  } catch(e){
+    console.log(e);
   }
 }
 
