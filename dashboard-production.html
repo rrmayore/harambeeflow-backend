@@ -59,6 +59,7 @@ table {
 th, td {
   padding: 12px;
   border-bottom: 1px solid #1f2937;
+  font-size: 13px;
 }
 
 /* FEED */
@@ -143,7 +144,6 @@ th, td {
 
 </div>
 
-<!-- 🔊 SOUND -->
 <audio id="alertSound">
   <source src="assets/mpesa.mp3" type="audio/mpeg">
 </audio>
@@ -189,10 +189,14 @@ function toast(msg){
   setTimeout(()=>d.remove(),3000);
 }
 
-function playSound(){
-  const a = document.getElementById("alertSound");
-  a.currentTime = 0;
-  a.play().catch(()=>{});
+function safeTime(d){
+  if (!d?.createdAt) return "Pending...";
+
+  if (d.createdAt._seconds) {
+    return new Date(d.createdAt._seconds * 1000).toLocaleString();
+  }
+
+  return new Date(d.createdAt).toLocaleString();
 }
 
 function start(){
@@ -207,31 +211,31 @@ function start(){
     const feed = document.getElementById("feedBox");
 
     table.innerHTML="";
+    feed.innerHTML="";
 
     snap.forEach(doc=>{
 
       const d = doc.data();
+
       total += Number(d.amount||0);
 
       if(d.status==="completed") completed++;
       else if(d.status==="pending") pending++;
       else failed++;
 
-      const isNew = !seen.has(doc.id);
-      if(isNew){
+      if(!seen.has(doc.id)){
         seen.add(doc.id);
         toast(`💰 ${d.name||"Anonymous"} donated KES ${d.amount}`);
-        playSound();
       }
 
       table.innerHTML += `
         <tr>
           <td>${d.name||"Anonymous"}</td>
-          <td>${d.phone}</td>
-          <td>${d.amount}</td>
+          <td>${d.phone||""}</td>
+          <td>${d.amount||0}</td>
           <td><span class="status ${d.status}">${d.status}</span></td>
           <td>${d.checkoutRequestID||""}</td>
-          <td>${d.createdAt? new Date(d.createdAt._seconds*1000).toLocaleString():""}</td>
+          <td>${safeTime(d)}</td>
         </tr>
       `;
 
@@ -239,7 +243,7 @@ function start(){
       msg.className="msg";
       msg.innerHTML = `
         <b>${d.name||"Anonymous"}</b><br>
-        Donated <span style="color:#22c55e">KES ${d.amount}</span>
+        Donated <span style="color:#22c55e">KES ${d.amount||0}</span>
       `;
 
       feed.prepend(msg);
