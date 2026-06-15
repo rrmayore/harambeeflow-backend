@@ -3,92 +3,103 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow Dashboard</title>
+<title>HarambeeFlow AI</title>
 
 <style>
 body{
   margin:0;
-  font-family:Arial;
-  background:#0b1220;
-  color:#fff;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg,#0f172a,#020617);
+  color:white;
 }
 
 /* HEADER */
 .header{
   display:flex;
   justify-content:space-between;
-  padding:15px 20px;
-  background:#111827;
+  align-items:center;
+  padding:18px 20px;
+  background:#0b1220;
   border-bottom:1px solid #1f2937;
 }
+
 .logo{
+  font-size:20px;
   font-weight:bold;
-  font-size:18px;
 }
-.logo span{color:#22c55e}
+.logo span{color:#22c55e;}
 
-/* CARDS */
-.grid{
+/* HERO */
+.hero{
+  text-align:center;
+  padding:30px 15px;
+}
+.hero h1{font-size:32px;}
+.hero p{color:#94a3b8;}
+
+/* STATS GRID */
+.stats{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-  gap:15px;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:12px;
   padding:20px;
-}
-.card{
-  background:#111827;
-  padding:15px;
-  border-radius:12px;
-  border:1px solid #1f2937;
-}
-.card h2{
-  color:#22c55e;
-  margin:0;
 }
 
-/* TABLE */
-.table{
+.card{
+  background: rgba(17,24,39,0.8);
+  border:1px solid #1f2937;
+  padding:18px;
+  border-radius:14px;
+  text-align:center;
+  backdrop-filter: blur(8px);
+}
+
+.card h2{margin:5px 0;}
+.total{color:#22c55e;}
+.ok{color:#10b981;}
+.pending{color:#facc15;}
+.failed{color:#ef4444;}
+
+/* FEED */
+.feed{
   padding:20px;
 }
-table{
-  width:100%;
-  border-collapse:collapse;
-  background:#111827;
+
+.feed-box{
+  background:#0b1220;
+  border:1px solid #1f2937;
   border-radius:12px;
-  overflow:hidden;
-}
-th,td{
   padding:12px;
-  border-bottom:1px solid #1f2937;
+  height:300px;
+  overflow:auto;
+}
+
+/* ITEM */
+.item{
+  padding:10px;
+  margin-bottom:8px;
+  border-radius:8px;
+  background:#111827;
+  display:flex;
+  justify-content:space-between;
   font-size:13px;
 }
-th{
-  background:#0f172a;
-  text-align:left;
-  color:#22c55e;
-}
 
-.status{
-  padding:4px 8px;
+.badge{
+  padding:3px 8px;
   border-radius:6px;
-  font-size:12px;
+  font-size:11px;
 }
-.completed{background:#14532d;color:#22c55e;}
-.pending{background:#3b3b1f;color:#facc15;}
-.failed{background:#3b1f1f;color:#f87171;}
 
-/* LIVE DOT */
-.live{
-  width:8px;
-  height:8px;
-  background:#22c55e;
-  border-radius:50%;
-  display:inline-block;
-  animation:pulse 1s infinite;
-}
-@keyframes pulse{
-  0%{opacity:1}
-  50%{opacity:0.3}
-  100%{opacity:1}
+.completed{background:#065f46;color:#34d399;}
+.pendingB{background:#92400e;color:#fbbf24;}
+.failedB{background:#7f1d1d;color:#f87171;}
+
+.footer{
+  text-align:center;
+  padding:20px;
+  color:#64748b;
+  font-size:12px;
 }
 </style>
 </head>
@@ -96,48 +107,30 @@ th{
 <body>
 
 <div class="header">
-  <div class="logo">Harambee<span>Flow</span> Dashboard</div>
-  <div><span class="live"></span> LIVE</div>
+  <div class="logo">Harambee<span>Flow AI</span></div>
+</div>
+
+<div class="hero">
+  <h1>Live M-PESA Fundraising</h1>
+  <p>Real-time donations and transparent tracking system</p>
 </div>
 
 <!-- STATS -->
-<div class="grid">
-  <div class="card">
-    <h2 id="total">KES 0</h2>
-    <p>Total Donations</p>
-  </div>
-
-  <div class="card">
-    <h2 id="completed">0</h2>
-    <p>Completed</p>
-  </div>
-
-  <div class="card">
-    <h2 id="pending">0</h2>
-    <p>Pending</p>
-  </div>
-
-  <div class="card">
-    <h2 id="failed">0</h2>
-    <p>Failed</p>
-  </div>
+<div class="stats">
+  <div class="card"><h2 class="total" id="total">KES 0</h2><p>Total Raised</p></div>
+  <div class="card"><h2 class="ok" id="completed">0</h2><p>Completed</p></div>
+  <div class="card"><h2 class="pending" id="pending">0</h2><p>Pending</p></div>
+  <div class="card"><h2 class="failed" id="failed">0</h2><p>Failed</p></div>
 </div>
 
-<!-- TABLE -->
-<div class="table">
-  <h3>Recent Transactions</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Phone</th>
-        <th>Amount</th>
-        <th>Status</th>
-        <th>Time</th>
-      </tr>
-    </thead>
-    <tbody id="rows"></tbody>
-  </table>
+<!-- FEED -->
+<div class="feed">
+  <h3>Live Feed</h3>
+  <div class="feed-box" id="feed"></div>
+</div>
+
+<div class="footer">
+  © 2026 HarambeeFlow AI
 </div>
 
 <script>
@@ -154,32 +147,31 @@ async function load(){
     document.getElementById("pending").innerText = data.pending;
     document.getElementById("failed").innerText = data.failed;
 
-    const rows = document.getElementById("rows");
-    rows.innerHTML = "";
+    const feed = document.getElementById("feed");
+    feed.innerHTML = "";
 
-    const latest = data.donations.slice(-15).reverse();
+    const recent = data.donations.slice(-12).reverse();
 
-    latest.forEach(d => {
+    recent.forEach(d => {
 
-      const tr = document.createElement("tr");
+      let statusClass = "pendingB";
+      if(d.status === "completed") statusClass = "completed";
+      if(d.status === "failed") statusClass = "failedB";
 
-      const statusClass =
-        d.status === "completed" ? "completed" :
-        d.status === "pending" ? "pending" : "failed";
+      const div = document.createElement("div");
+      div.className = "item";
 
-      const time = d.createdAt?.seconds
-        ? new Date(d.createdAt.seconds * 1000).toLocaleString()
-        : "N/A";
-
-      tr.innerHTML = `
-        <td>${d.name || "Anonymous"}</td>
-        <td>${d.phone}</td>
-        <td>KES ${d.amount}</td>
-        <td><span class="status ${statusClass}">${d.status}</span></td>
-        <td>${time}</td>
+      div.innerHTML = `
+        <div>
+          💰 ${d.name || "Anonymous"} • ${d.phone || "N/A"}<br/>
+          <small>KES ${d.amount}</small>
+        </div>
+        <div class="badge ${statusClass}">
+          ${d.status}
+        </div>
       `;
 
-      rows.appendChild(tr);
+      feed.appendChild(div);
     });
 
   } catch(err){
