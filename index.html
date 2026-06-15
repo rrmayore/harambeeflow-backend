@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow Fintech v4</title>
+<title>HarambeeFlow Fintech v5 Enterprise</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
@@ -53,6 +53,7 @@ body{
 .page{display:none;}
 .page.active{display:block;}
 
+/* CARDS */
 .cards{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
@@ -124,6 +125,13 @@ canvas{
   border-radius:10px;
   padding:10px;
 }
+
+/* LOADING */
+.loading{
+  text-align:center;
+  margin-top:20px;
+  opacity:0.7;
+}
 </style>
 </head>
 
@@ -132,7 +140,7 @@ canvas{
 <!-- LOGIN -->
 <div class="loginBox" id="loginBox">
   <div class="loginCard">
-    <h3>Admin Login v4</h3>
+    <h3>Admin Login v5</h3>
     <input id="email" placeholder="Email"/>
     <input id="password" type="password" placeholder="Password"/>
     <button class="primary" onclick="login()">Login</button>
@@ -141,7 +149,7 @@ canvas{
 
 <!-- SIDEBAR -->
 <div class="sidebar">
-  <div class="brand">Harambee<span>Flow v4</span></div>
+  <div class="brand">Harambee<span>Flow v5</span></div>
 
   <div class="nav">
     <button onclick="showPage('dashboard')">📊 Dashboard</button>
@@ -158,6 +166,7 @@ canvas{
 <div id="dashboard" class="page active">
 
   <h2>Dashboard</h2>
+  <div class="loading" id="loading">Loading live data...</div>
 
   <div class="cards">
     <div class="card"><h2 id="total">KES 0</h2><p>Total</p></div>
@@ -170,25 +179,20 @@ canvas{
 
 <!-- ANALYTICS -->
 <div id="analytics" class="page">
-
   <h2>Revenue Analytics</h2>
   <canvas id="chart" height="120"></canvas>
-
 </div>
 
 <!-- FEED -->
 <div id="feed" class="page">
-
   <h2>Live Feed</h2>
   <div class="feed" id="feedBox"></div>
-
 </div>
 
 </div>
 
 <script>
 
-/* FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
   authDomain: "harambeeflow.firebaseapp.com",
@@ -202,13 +206,19 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
 let chart;
+let isLoggedIn = false;
 
 /* LOGIN */
 async function login(){
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-
-  await auth.signInWithEmailAndPassword(email, password);
+  try{
+    await auth.signInWithEmailAndPassword(
+      email.value,
+      password.value
+    );
+  }catch(err){
+    alert("Login failed");
+    console.log(err);
+  }
 }
 
 /* LOGOUT */
@@ -216,8 +226,10 @@ function logout(){
   auth.signOut();
 }
 
-/* AUTH STATE */
+/* AUTH */
 auth.onAuthStateChanged(user=>{
+  isLoggedIn = !!user;
+
   if(user){
     document.getElementById("loginBox").style.display = "none";
     load();
@@ -232,47 +244,57 @@ function showPage(page){
   document.getElementById(page).classList.add('active');
 }
 
-/* LOAD DATA */
+/* LOAD */
 async function load(){
 
-  const res = await fetch("https://harambeeflow-backend.onrender.com/stats");
-  const data = await res.json();
+  if(!isLoggedIn) return;
 
-  document.getElementById("total").innerText = "KES " + data.total;
-  document.getElementById("completed").innerText = data.completed;
-  document.getElementById("pending").innerText = data.pending;
-  document.getElementById("failed").innerText = data.failed;
+  try{
 
-  /* FEED */
-  const feedBox = document.getElementById("feedBox");
-  feedBox.innerHTML = "";
+    const res = await fetch("https://harambeeflow-backend.onrender.com/stats");
+    const data = await res.json();
 
-  data.donations.slice(-15).reverse().forEach(d=>{
-    const div = document.createElement("div");
-    div.innerText = `💰 ${d.name} • ${d.phone} • KES ${d.amount} (${d.status})`;
-    feedBox.appendChild(div);
-  });
+    document.getElementById("loading").style.display = "none";
 
-  /* CHART */
-  const totals = data.donations.slice(-10).map(d=>Number(d.amount || 0));
+    total.innerText = "KES " + data.total;
+    completed.innerText = data.completed;
+    pending.innerText = data.pending;
+    failed.innerText = data.failed;
 
-  if(chart) chart.destroy();
+    feedBox.innerHTML = "";
 
-  chart = new Chart(document.getElementById("chart"), {
-    type: "line",
-    data: {
-      labels: totals.map((_,i)=>"Tx " + (i+1)),
-      datasets: [{
-        label: "Revenue",
-        data: totals,
-        borderColor: "#22c55e",
-        backgroundColor: "rgba(34,197,94,0.2)"
-      }]
-    }
-  });
+    data.donations.slice(-15).reverse().forEach(d=>{
+      const div = document.createElement("div");
+      div.innerText = `💰 ${d.name || "Anon"} • ${d.phone} • KES ${d.amount} (${d.status})`;
+      feedBox.appendChild(div);
+    });
+
+    const totals = data.donations.slice(-10).map(d=>Number(d.amount||0));
+
+    if(chart) chart.destroy();
+
+    chart = new Chart(chartCanvas(), {
+      type:"line",
+      data:{
+        labels: totals.map((_,i)=>"Tx "+(i+1)),
+        datasets:[{
+          label:"Revenue",
+          data:totals,
+          borderColor:"#22c55e"
+        }]
+      }
+    });
+
+  }catch(err){
+    console.log("LOAD ERROR", err);
+  }
 }
 
-setInterval(load, 5000);
+function chartCanvas(){
+  return document.getElementById("chart");
+}
+
+setInterval(load,5000);
 
 </script>
 
