@@ -26,7 +26,10 @@ body{
   border-bottom:1px solid #1f2937;
 }
 
-.logo{font-size:20px;font-weight:bold;}
+.logo{
+  font-size:20px;
+  font-weight:bold;
+}
 .logo span{color:#22c55e;}
 
 /* INSTALL BUTTON */
@@ -127,7 +130,7 @@ body{
 <div class="header">
   <div class="logo">Harambee<span>Flow AI</span></div>
 
-  <!-- 🔥 INSTALL BUTTON -->
+  <!-- PWA INSTALL BUTTON -->
   <button id="installBtn">⬇ Install App</button>
 </div>
 
@@ -155,14 +158,14 @@ body{
   © 2026 HarambeeFlow AI
 </div>
 
-<!-- 🔥 PWA SERVICE WORKER -->
+<!-- 🔥 SERVICE WORKER REGISTRATION -->
 <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js");
 }
 </script>
 
-<!-- 🔥 INSTALL BUTTON LOGIC -->
+<!-- 🔥 PWA INSTALL LOGIC -->
 <script>
 let deferredPrompt;
 
@@ -182,7 +185,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 });
 </script>
 
-<!-- YOUR APP LOGIC -->
+<!-- 🔥 APP LOGIC -->
 <script>
 
 let lastCount = 0;
@@ -195,6 +198,7 @@ function notify(msg){
   div.innerText = msg;
 
   box.appendChild(div);
+
   setTimeout(() => div.remove(), 4000);
 }
 
@@ -213,20 +217,23 @@ async function load(){
     const feed = document.getElementById("feed");
     feed.innerHTML = "";
 
-    data.donations.slice(-10).reverse().forEach(d => {
+    const recent = data.donations.slice(-10).reverse();
+
+    recent.forEach(d => {
       const item = document.createElement("div");
-      item.innerText = `💰 ${d.phone} paid KES ${d.amount} (${d.status})`;
+      item.innerText = `💰 ${d.name || "Anonymous"} • ${d.phone} paid KES ${d.amount} (${d.status})`;
       feed.appendChild(item);
     });
 
+    // 🔔 NEW DONATION ALERT
     if(data.donations.length > lastCount){
       const latest = data.donations[data.donations.length - 1];
-      notify(`💰 ${latest.phone} donated KES ${latest.amount}`);
+      notify(`💰 New Donation: ${latest.name || "Anonymous"} donated KES ${latest.amount}`);
       lastCount = data.donations.length;
     }
 
   } catch(err){
-    console.log(err);
+    console.log("Dashboard error:", err);
   }
 }
 
