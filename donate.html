@@ -56,6 +56,7 @@
     .title {
       font-size: 18px;
       margin-bottom: 10px;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -66,7 +67,7 @@
 
   <div class="title">💰 Donate to HarambeeFlow</div>
 
-  <input id="name" placeholder="Your Name">
+  <input id="name" placeholder="Your Name (optional)">
   <input id="phone" placeholder="2547XXXXXXXX">
   <input id="amount" placeholder="Amount (KES)">
 
@@ -79,17 +80,22 @@
 async function pay() {
 
   const name = document.getElementById("name").value.trim();
-  const phone = document.getElementById("phone").value.trim();
+  let phone = document.getElementById("phone").value.trim();
   const amount = document.getElementById("amount").value.trim();
+
   const msg = document.getElementById("msg");
   const btn = document.getElementById("btn");
 
-  if (!name || !phone || !amount) {
-    msg.innerText = "❌ Please fill all fields";
+  // basic validation
+  if (!phone || !amount) {
+    msg.innerText = "❌ Phone and amount are required";
     return;
   }
 
-  msg.innerText = "Processing STK Push...";
+  // normalize phone (basic safety)
+  phone = phone.replace(/\D/g, "");
+
+  msg.innerText = "📲 Sending STK Push...";
   btn.disabled = true;
 
   try {
@@ -99,22 +105,22 @@ async function pay() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        name,
+        name: name || "Anonymous",
         phone,
-        amount
+        amount: Number(amount)
       })
     });
 
     const data = await res.json();
 
     if (data.error) {
-      msg.innerText = "❌ Error: " + data.error;
+      msg.innerText = "❌ " + data.error;
     } else {
-      msg.innerText = "✔ STK Push sent. Check your phone.";
+      msg.innerText = "✔ STK Push sent. Check your phone to complete payment.";
     }
 
   } catch (err) {
-    msg.innerText = "❌ Network error. Try again.";
+    msg.innerText = "❌ Network error. Try again later.";
   }
 
   btn.disabled = false;
