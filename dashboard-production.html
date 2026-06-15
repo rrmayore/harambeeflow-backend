@@ -20,10 +20,7 @@ body {
   align-items: center;
 }
 
-.header h1 {
-  margin: 0;
-  font-size: 20px;
-}
+.header h1 { margin: 0; font-size: 20px; }
 
 button {
   padding: 8px 12px;
@@ -51,19 +48,14 @@ button {
   text-align: center;
 }
 
-.card h2 {
-  margin: 0;
-  font-size: 18px;
-}
+.card h2 { margin: 0; font-size: 18px; }
 
 .card p {
   font-size: 22px;
   margin: 10px 0 0;
 }
 
-.table-container {
-  padding: 20px;
-}
+.table-container { padding: 20px; }
 
 table {
   width: 100%;
@@ -79,9 +71,7 @@ th, td {
   text-align: left;
 }
 
-th {
-  background: #1f2937;
-}
+th { background: #1f2937; }
 
 .status {
   padding: 5px 10px;
@@ -93,13 +83,7 @@ th {
 .pending { background: orange; }
 .failed { background: red; }
 
-@media (max-width: 768px) {
-  .stats {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-/* 🔔 NOTIFICATION TOAST */
+/* 🔔 TOAST */
 .toast {
   position: fixed;
   top: 20px;
@@ -108,8 +92,6 @@ th {
   color: white;
   padding: 12px 16px;
   border-radius: 8px;
-  margin-bottom: 10px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   z-index: 9999;
   animation: fadeIn 0.3s ease;
 }
@@ -135,7 +117,7 @@ import {
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-/* 🔑 Firebase Config */
+/* Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
   authDomain: "harambeeflow.firebaseapp.com",
@@ -152,86 +134,87 @@ const db = getFirestore(app);
 
 const ADMIN_EMAIL = "admin@harambeeflow.com";
 
-/* 🔔 TRACK NOTIFICATIONS */
-let seen = new Set();
+/* 🔔 STATE TRACKING */
+let seen = new Map(); // id → status
 
-/* 🔒 AUTH GUARD */
+function showToast(msg) {
+  const div = document.createElement("div");
+  div.className = "toast";
+  div.innerText = msg;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 3500);
+}
+
+/* AUTH */
 onAuthStateChanged(auth, async (user) => {
-
-  if (!user) {
-    window.location.href = "login.html";
-    return;
-  }
+  if (!user) return (window.location.href = "login.html");
 
   if (user.email !== ADMIN_EMAIL) {
-    alert("Access denied. Admin only.");
+    alert("Access denied");
     await signOut(auth);
-    window.location.href = "login.html";
-    return;
+    return (window.location.href = "login.html");
   }
 
-  startRealtimeDashboard();
+  startRealtime();
 });
 
-/* 🚪 LOGOUT */
-window.logout = async function () {
+window.logout = async () => {
   await signOut(auth);
   window.location.href = "login.html";
 };
 
-/* 🔔 TOAST NOTIFICATION */
-function showToast(message) {
-  const div = document.createElement("div");
-  div.className = "toast";
-  div.innerText = message;
+/* REAL-TIME ENGINE */
+function startRealtime() {
 
-  document.body.appendChild(div);
+  const ref = collection(db, "donations");
 
-  setTimeout(() => {
-    div.remove();
-  }, 4000);
-}
+  onSnapshot(ref, (snapshot) => {
 
-/* ⚡ REAL-TIME ENGINE + NOTIFICATIONS */
-function startRealtimeDashboard() {
-
-  const donationsRef = collection(db, "donations");
-
-  onSnapshot(donationsRef, (snapshot) => {
-
-    let total = 0;
-    let completed = 0;
-    let pending = 0;
-    let failed = 0;
+    let total = 0, completed = 0, pending = 0, failed = 0;
 
     const table = document.getElementById("table");
     table.innerHTML = "";
 
+    const rows = [];
+
     snapshot.forEach(doc => {
       const d = doc.data();
+
+      const prevStatus = seen.get(doc.id);
+      seen.set(doc.id, d.status);
 
       total += Number(d.amount || 0);
 
       if (d.status === "completed") completed++;
       else if (d.status === "pending") pending++;
-      else if (d.status === "failed") failed++;
+      else failed++;
 
-      /* 🔔 NEW DONATION DETECTION */
-      if (!seen.has(doc.id)) {
-        seen.add(doc.id);
-
+      /* 🔔 NEW DONATION */
+      if (!prevStatus) {
         showToast(`💰 New Donation: KES ${d.amount} from ${d.phone}`);
       }
 
+      /* 🔔 STATUS CHANGE */
+      if (prevStatus && prevStatus !== d.status) {
+        showToast(`🔄 Donation ${doc.id} → ${d.status}`);
+      }
+
+      rows.push(d);
+    });
+
+    /* latest first */
+    rows.reverse();
+
+    rows.forEach(d => {
       table.innerHTML += `
         <tr>
-          <td>${d.phone}</td>
-          <td>${d.amount}</td>
+          <td>${d.phone || ""}</td>
+          <td>${d.amount || 0}</td>
           <td><span class="status ${d.status}">${d.status}</span></td>
-          <td>${d.checkoutRequestID}</td>
+          <td>${d.checkoutRequestID || ""}</td>
           <td>${
-            d.createdAt
-              ? new Date(d.createdAt._seconds * 1000).toLocaleString()
+            d.createdAt?.seconds
+              ? new Date(d.createdAt.seconds * 1000).toLocaleString()
               : ""
           }</td>
         </tr>
@@ -245,7 +228,6 @@ function startRealtimeDashboard() {
 
   });
 }
-
 </script>
 
 </head>
@@ -258,40 +240,25 @@ function startRealtimeDashboard() {
 </div>
 
 <div class="stats">
-  <div class="card">
-    <h2>Total Raised</h2>
-    <p id="total">0</p>
-  </div>
-
-  <div class="card">
-    <h2>Completed</h2>
-    <p id="completed">0</p>
-  </div>
-
-  <div class="card">
-    <h2>Pending</h2>
-    <p id="pending">0</p>
-  </div>
-
-  <div class="card">
-    <h2>Failed</h2>
-    <p id="failed">0</p>
-  </div>
+  <div class="card"><h2>Total</h2><p id="total">0</p></div>
+  <div class="card"><h2>Completed</h2><p id="completed">0</p></div>
+  <div class="card"><h2>Pending</h2><p id="pending">0</p></div>
+  <div class="card"><h2>Failed</h2><p id="failed">0</p></div>
 </div>
 
 <div class="table-container">
-  <table>
-    <thead>
-      <tr>
-        <th>Phone</th>
-        <th>Amount</th>
-        <th>Status</th>
-        <th>Checkout ID</th>
-        <th>Time</th>
-      </tr>
-    </thead>
-    <tbody id="table"></tbody>
-  </table>
+<table>
+<thead>
+<tr>
+<th>Phone</th>
+<th>Amount</th>
+<th>Status</th>
+<th>Checkout ID</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
 </div>
 
 </body>
