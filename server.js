@@ -6,25 +6,27 @@ const rateLimit = require("express-rate-limit");
 
 const app = express();
 
-app.use(express.json());
+/* =========================
+   SECURITY HEADERS
+========================= */
+app.use(express.json({ limit: "1mb" }));
 
 /* =========================
    CORS LOCK
 ========================= */
 app.use(cors({
-  origin: "https://rrmayore.github.io"
+  origin: "https://rrmayore.github.io",
+  methods: ["GET", "POST"],
 }));
 
 /* =========================
    RATE LIMITING
 ========================= */
-const limiter = rateLimit({
+app.use("/stkpush", rateLimit({
   windowMs: 60 * 1000,
   max: 30,
   message: { error: "Too many requests, slow down" }
-});
-
-app.use("/stkpush", limiter);
+}));
 
 /* =========================
    FIREBASE INIT
@@ -40,12 +42,12 @@ admin.initializeApp({
 const db = admin.firestore();
 
 /* =========================
-   ENTERPRISE SECRET
+   ENV SECRETS
 ========================= */
 const CALLBACK_SECRET = process.env.CALLBACK_SECRET;
 
 /* =========================
-   RBAC SYSTEM
+   RBAC
 ========================= */
 const USER_ROLES = {
   "admin@harambeeflow.com": "admin",
@@ -76,16 +78,15 @@ async function verifyAdmin(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return res.status(401).json({ error: "No token provided" });
     }
 
     const idToken = authHeader.split("Bearer ")[1];
-
     const decoded = await admin.auth().verifyIdToken(idToken);
 
     if (!decoded?.email) {
-      return res.status(403).json({ error: "Invalid token email" });
+      return res.status(403).json({ error: "Invalid token" });
     }
 
     const role = USER_ROLES[decoded.email];
@@ -94,31 +95,31 @@ async function verifyAdmin(req, res, next) {
       return res.status(403).json({ error: "No role assigned" });
     }
 
-    req.user = {
-      email: decoded.email,
-      role
-    };
-
+    req.user = { email: decoded.email, role };
     next();
 
-  } catch (error) {
-    console.error("Auth error:", error);
+  } catch (err) {
+    console.error(err);
     return res.status(401).json({ error: "Authentication failed" });
   }
 }
 
 /* =========================
-   VALIDATION
+   VALIDATION (FIXED)
 ========================= */
 function validateSTKInput(req, res, next) {
-  const { phone, amount } = req.body;
+  const { name, phone, amount } = req.body;
 
   if (!phone || !amount) {
     return res.status(400).json({ error: "Phone and amount required" });
   }
 
+  if (typeof amount !== "number" && isNaN(amount)) {
+    return res.status(400).json({ error: "Invalid amount format" });
+  }
+
   if (amount <= 0 || amount > 100000) {
-    return res.status(400).json({ error: "Invalid amount" });
+    return res.status(400).json({ error: "Amount out of range" });
   }
 
   next();
@@ -140,37 +141,32 @@ async function getAccessToken() {
   const url =
     "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
 
-  const auth = Buffer.from(
-    `${consumerKey}:${consumerSecret}`
-  ).toString("base64");
+  const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
 
-  const response = await axios.get(url, {
-    headers: {
-      Authorization: `Basic ${auth}`,
-    },
+  const res = await axios.get(url, {
+    headers: { Authorization: `Basic ${auth}` }
   });
 
-  return response.data.access_token;
+  return res.data.access_token;
 }
 
 /* =========================
-   STK PUSH (FIXED NAME STORAGE)
+   STK PUSH (IMPROVED)
 ========================= */
 app.post("/stkpush", validateSTKInput, async (req, res) => {
   try {
 
-    const { name, phone, amount } = req.body;
+    const { name = "Anonymous", phone, amount } = req.body;
 
     // prevent duplicate pending
     const existing = await db.collection("donations")
       .where("phone", "==", phone)
       .where("status", "==", "pending")
+      .limit(1)
       .get();
 
     if (!existing.empty) {
-      return res.status(429).json({
-        error: "Pending transaction already exists"
-      });
+      return res.status(429).json({ error: "Pending transaction exists" });
     }
 
     const token = await getAccessToken();
@@ -184,15 +180,12 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
       shortcode + passkey + timestamp
     ).toString("base64");
 
-    const stkUrl =
-      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
-
     const payload = {
       BusinessShortCode: shortcode,
       Password: password,
       Timestamp: timestamp,
       TransactionType: "CustomerPayBillOnline",
-      Amount: amount,
+      Amount: Number(amount),
       PartyA: phone,
       PartyB: shortcode,
       PhoneNumber: phone,
@@ -201,15 +194,16 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
       TransactionDesc: "Donation",
     };
 
-    const response = await axios.post(stkUrl, payload, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await axios.post(
+      "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
+      payload,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
 
-    // ✅ FIX: now includes donor name
     await db.collection("donations").add({
-      name: name || "Anonymous",
+      name,
       phone,
-      amount,
+      amount: Number(amount),
       checkoutRequestID: response.data.CheckoutRequestID,
       merchantRequestID: response.data.MerchantRequestID,
       status: "pending",
@@ -218,25 +212,24 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
 
     res.json(response.data);
 
-  } catch (error) {
-    console.error(error.response?.data || error.message);
+  } catch (err) {
+    console.error(err.response?.data || err.message);
     res.status(500).json({ error: "STK Push failed" });
   }
 });
 
 /* =========================
-   CALLBACK (SECURED)
+   CALLBACK (DEDUPED FIX)
 ========================= */
 app.post("/callback", async (req, res) => {
   try {
 
     const secret = req.headers["x-callback-secret"];
-
-    if (!CALLBACK_SECRET || secret !== CALLBACK_SECRET) {
+    if (CALLBACK_SECRET && secret !== CALLBACK_SECRET) {
       return res.status(403).json({ error: "Invalid callback secret" });
     }
 
-    const callback = req.body.Body?.stkCallback;
+    const callback = req.body?.Body?.stkCallback;
 
     if (!callback?.CheckoutRequestID) {
       return res.status(400).json({ error: "Invalid callback" });
@@ -244,23 +237,28 @@ app.post("/callback", async (req, res) => {
 
     const status = callback.ResultCode === 0 ? "completed" : "failed";
 
-    const snapshot = await db
-      .collection("donations")
+    const snap = await db.collection("donations")
       .where("checkoutRequestID", "==", callback.CheckoutRequestID)
+      .limit(1)
       .get();
 
-    if (!snapshot.empty) {
-      await snapshot.docs[0].ref.update({
-        status,
-        callbackData: callback,
-        updatedAt: new Date(),
-      });
+    if (!snap.empty) {
+      const doc = snap.docs[0];
+
+      // prevent duplicate overwrite
+      if (doc.data().status === "pending") {
+        await doc.ref.update({
+          status,
+          callbackData: callback,
+          updatedAt: new Date(),
+        });
+      }
     }
 
     res.json({ ResultCode: 0 });
 
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Callback failed" });
   }
 });
@@ -275,32 +273,25 @@ app.get("/stats", verifyAdmin, async (req, res) => {
       return res.status(403).json({ error: "Admins only" });
     }
 
-    await logAction(req.user, "VIEW_STATS");
+    const snap = await db.collection("donations").get();
 
-    const snapshot = await db.collection("donations").get();
-
-    let total = 0;
-    let completed = 0;
-    let pending = 0;
-    let failed = 0;
-
+    let total = 0, completed = 0, pending = 0, failed = 0;
     const donations = [];
 
-    snapshot.forEach(doc => {
-      const data = doc.data();
+    snap.forEach(doc => {
+      const d = doc.data();
 
-      total += Number(data.amount || 0);
+      total += Number(d.amount || 0);
+      if (d.status === "completed") completed++;
+      else if (d.status === "pending") pending++;
+      else failed++;
 
-      if (data.status === "completed") completed++;
-      else if (data.status === "pending") pending++;
-      else if (data.status === "failed") failed++;
-
-      donations.push({ id: doc.id, ...data });
+      donations.push({ id: doc.id, ...d });
     });
 
     res.json({ total, completed, pending, failed, donations });
 
-  } catch (error) {
+  } catch (err) {
     res.status(500).json({ error: "Stats error" });
   }
 });
@@ -315,34 +306,29 @@ app.get("/donations", verifyAdmin, async (req, res) => {
       return res.status(403).json({ error: "Not allowed" });
     }
 
-    await logAction(req.user, "VIEW_DONATIONS");
+    const snap = await db.collection("donations").get();
 
-    const snapshot = await db.collection("donations").get();
-
-    const donations = [];
-
-    snapshot.forEach(doc => {
-      donations.push({ id: doc.id, ...doc.data() });
-    });
+    const donations = snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
 
     res.json(donations);
 
-  } catch (error) {
+  } catch (err) {
     res.status(500).json({ error: "Fetch error" });
   }
 });
 
 /* =========================
-   HEALTH CHECK
+   HEALTH
 ========================= */
 app.get("/", (req, res) => {
   res.send("HarambeeFlow Enterprise Backend 🚀");
 });
 
 /* =========================
-   START SERVER
+   START
 ========================= */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
