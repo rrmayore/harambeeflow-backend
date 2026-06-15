@@ -18,7 +18,7 @@
       background: #1f2937;
       padding: 25px;
       border-radius: 10px;
-      width: 320px;
+      width: 340px;
     }
 
     input {
@@ -35,14 +35,27 @@
       margin-top: 15px;
       border: none;
       background: #22c55e;
-      color: white;
+      color: black;
+      font-weight: bold;
       border-radius: 5px;
       cursor: pointer;
     }
 
+    button:disabled {
+      background: #64748b;
+      cursor: not-allowed;
+    }
+
     #msg {
-      margin-top: 10px;
+      margin-top: 12px;
       font-size: 14px;
+      color: #cbd5e1;
+      min-height: 20px;
+    }
+
+    .title {
+      font-size: 18px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
@@ -50,12 +63,14 @@
 <body>
 
 <div class="box">
-  <h2>💰 Donate to HarambeeFlow</h2>
 
+  <div class="title">💰 Donate to HarambeeFlow</div>
+
+  <input id="name" placeholder="Your Name">
   <input id="phone" placeholder="2547XXXXXXXX">
   <input id="amount" placeholder="Amount (KES)">
 
-  <button onclick="pay()">Pay Now</button>
+  <button id="btn" onclick="pay()">Pay Now</button>
 
   <p id="msg"></p>
 </div>
@@ -63,11 +78,19 @@
 <script>
 async function pay() {
 
-  const phone = document.getElementById("phone").value;
-  const amount = document.getElementById("amount").value;
+  const name = document.getElementById("name").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const amount = document.getElementById("amount").value.trim();
   const msg = document.getElementById("msg");
+  const btn = document.getElementById("btn");
+
+  if (!name || !phone || !amount) {
+    msg.innerText = "❌ Please fill all fields";
+    return;
+  }
 
   msg.innerText = "Processing STK Push...";
+  btn.disabled = true;
 
   try {
     const res = await fetch("https://harambeeflow-backend.onrender.com/stkpush", {
@@ -76,6 +99,7 @@ async function pay() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
+        name,
         phone,
         amount
       })
@@ -84,14 +108,16 @@ async function pay() {
     const data = await res.json();
 
     if (data.error) {
-      msg.innerText = "Error: " + data.error;
+      msg.innerText = "❌ Error: " + data.error;
     } else {
       msg.innerText = "✔ STK Push sent. Check your phone.";
     }
 
   } catch (err) {
-    msg.innerText = "Request failed";
+    msg.innerText = "❌ Network error. Try again.";
   }
+
+  btn.disabled = false;
 }
 </script>
 
