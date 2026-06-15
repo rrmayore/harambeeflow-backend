@@ -3,198 +3,144 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
-<title>HarambeeFlow AI</title>
+<title>HarambeeFlow Dashboard</title>
 
 <style>
-
-*{margin:0;padding:0;box-sizing:border-box;}
-
 body{
-  font-family: Arial, sans-serif;
-  background:#0f172a;
-  color:white;
+  margin:0;
+  font-family:Arial;
+  background:#0b1220;
+  color:#fff;
 }
 
 /* HEADER */
 .header{
-  background:#111827;
-  padding:18px 22px;
   display:flex;
   justify-content:space-between;
-  align-items:center;
+  padding:15px 20px;
+  background:#111827;
   border-bottom:1px solid #1f2937;
 }
-
 .logo{
-  font-size:20px;
   font-weight:bold;
+  font-size:18px;
 }
-.logo span{color:#22c55e;}
+.logo span{color:#22c55e}
 
-/* INSTALL BUTTON */
-#installBtn{
-  display:none;
-  background:#22c55e;
-  color:black;
-  padding:8px 12px;
-  border:none;
-  border-radius:8px;
-  font-weight:bold;
-  cursor:pointer;
-}
-
-/* HERO */
-.hero{
-  padding:50px 20px 20px;
-  text-align:center;
-}
-
-.hero h1{font-size:40px;margin-bottom:10px;}
-.hero p{color:#cbd5e1;max-width:700px;margin:auto;}
-
-/* STATS */
-.stats{
+/* CARDS */
+.grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-  gap:12px;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:15px;
   padding:20px;
 }
-
-.stat{
+.card{
   background:#111827;
-  padding:18px;
+  padding:15px;
   border-radius:12px;
-  text-align:center;
   border:1px solid #1f2937;
 }
+.card h2{
+  color:#22c55e;
+  margin:0;
+}
 
-.stat h2{color:#22c55e;}
-
-/* FEED */
-.feed{
+/* TABLE */
+.table{
   padding:20px;
 }
-
-.feed-box{
-  background:#0b1220;
-  border:1px solid #1f2937;
+table{
+  width:100%;
+  border-collapse:collapse;
+  background:#111827;
   border-radius:12px;
+  overflow:hidden;
+}
+th,td{
   padding:12px;
-  height:180px;
-  overflow:auto;
+  border-bottom:1px solid #1f2937;
   font-size:13px;
-  color:#cbd5e1;
+}
+th{
+  background:#0f172a;
+  text-align:left;
+  color:#22c55e;
 }
 
-/* NOTIFICATIONS */
-#notifContainer{
-  position:fixed;
-  top:15px;
-  right:15px;
-  z-index:9999;
-}
-
-.notif{
-  background:#111827;
-  border-left:4px solid #22c55e;
-  padding:12px 14px;
-  margin-bottom:10px;
-  width:260px;
-  font-size:13px;
-  border-radius:8px;
-  animation:fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn{
-  from{opacity:0;transform:translateY(-10px);}
-  to{opacity:1;transform:translateY(0);}
-}
-
-.footer{
-  text-align:center;
-  padding:20px;
-  color:#94a3b8;
+.status{
+  padding:4px 8px;
+  border-radius:6px;
   font-size:12px;
 }
+.completed{background:#14532d;color:#22c55e;}
+.pending{background:#3b3b1f;color:#facc15;}
+.failed{background:#3b1f1f;color:#f87171;}
 
+/* LIVE DOT */
+.live{
+  width:8px;
+  height:8px;
+  background:#22c55e;
+  border-radius:50%;
+  display:inline-block;
+  animation:pulse 1s infinite;
+}
+@keyframes pulse{
+  0%{opacity:1}
+  50%{opacity:0.3}
+  100%{opacity:1}
+}
 </style>
 </head>
 
 <body>
 
-<div id="notifContainer"></div>
-
 <div class="header">
-  <div class="logo">Harambee<span>Flow AI</span></div>
-  <button id="installBtn">⬇ Install App</button>
+  <div class="logo">Harambee<span>Flow</span> Dashboard</div>
+  <div><span class="live"></span> LIVE</div>
 </div>
 
-<div class="hero">
-  <h1>Live M-PESA Fundraising System</h1>
-  <p>Real-time donations, instant updates, and transparent tracking for communities.</p>
+<!-- STATS -->
+<div class="grid">
+  <div class="card">
+    <h2 id="total">KES 0</h2>
+    <p>Total Donations</p>
+  </div>
+
+  <div class="card">
+    <h2 id="completed">0</h2>
+    <p>Completed</p>
+  </div>
+
+  <div class="card">
+    <h2 id="pending">0</h2>
+    <p>Pending</p>
+  </div>
+
+  <div class="card">
+    <h2 id="failed">0</h2>
+    <p>Failed</p>
+  </div>
 </div>
 
-<div class="stats">
-  <div class="stat"><h2 id="total">KES 0</h2><p>Total</p></div>
-  <div class="stat"><h2 id="completed">0</h2><p>Completed</p></div>
-  <div class="stat"><h2 id="pending">0</h2><p>Pending</p></div>
-  <div class="stat"><h2 id="failed">0</h2><p>Failed</p></div>
+<!-- TABLE -->
+<div class="table">
+  <h3>Recent Transactions</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Amount</th>
+        <th>Status</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
 </div>
 
-<div class="feed">
-  <h3 style="color:#22c55e">Live Feed</h3>
-  <div class="feed-box" id="feed"></div>
-</div>
-
-<div class="footer">
-  © 2026 HarambeeFlow AI
-</div>
-
-<!-- SERVICE WORKER -->
 <script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js")
-    .then(() => console.log("SW registered"))
-    .catch(err => console.log("SW error:", err));
-}
-</script>
-
-<!-- PWA INSTALL -->
-<script>
-let deferredPrompt;
-
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-
-  const btn = document.getElementById("installBtn");
-  btn.style.display = "block";
-
-  btn.onclick = async () => {
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    btn.style.display = "none";
-  };
-});
-</script>
-
-<!-- APP LOGIC -->
-<script>
-
-let notifiedIds = new Set();
-
-function notify(msg){
-  const box = document.getElementById("notifContainer");
-
-  const div = document.createElement("div");
-  div.className = "notif";
-  div.innerText = msg;
-
-  box.appendChild(div);
-  setTimeout(() => div.remove(), 4000);
-}
 
 async function load(){
 
@@ -203,34 +149,41 @@ async function load(){
     const res = await fetch("https://harambeeflow-backend.onrender.com/stats");
     const data = await res.json();
 
-    if(!data || !data.donations) return;
+    document.getElementById("total").innerText = "KES " + data.total;
+    document.getElementById("completed").innerText = data.completed;
+    document.getElementById("pending").innerText = data.pending;
+    document.getElementById("failed").innerText = data.failed;
 
-    document.getElementById("total").innerText = "KES " + (data.total || 0);
-    document.getElementById("completed").innerText = data.completed || 0;
-    document.getElementById("pending").innerText = data.pending || 0;
-    document.getElementById("failed").innerText = data.failed || 0;
+    const rows = document.getElementById("rows");
+    rows.innerHTML = "";
 
-    const feed = document.getElementById("feed");
-    feed.innerHTML = "";
+    const latest = data.donations.slice(-15).reverse();
 
-    const recent = data.donations.slice(-10).reverse();
+    latest.forEach(d => {
 
-    recent.forEach(d => {
-      const item = document.createElement("div");
-      item.innerText = `💰 ${d.name || "Anonymous"} • ${d.phone || "N/A"} paid KES ${d.amount || 0} (${d.status || "pending"})`;
-      feed.appendChild(item);
+      const tr = document.createElement("tr");
+
+      const statusClass =
+        d.status === "completed" ? "completed" :
+        d.status === "pending" ? "pending" : "failed";
+
+      const time = d.createdAt?.seconds
+        ? new Date(d.createdAt.seconds * 1000).toLocaleString()
+        : "N/A";
+
+      tr.innerHTML = `
+        <td>${d.name || "Anonymous"}</td>
+        <td>${d.phone}</td>
+        <td>KES ${d.amount}</td>
+        <td><span class="status ${statusClass}">${d.status}</span></td>
+        <td>${time}</td>
+      `;
+
+      rows.appendChild(tr);
     });
 
-    const latest = data.donations[data.donations.length - 1];
-
-    if(latest && latest.checkoutRequestID && !notifiedIds.has(latest.checkoutRequestID)){
-      notifiedIds.add(latest.checkoutRequestID);
-
-      notify(`💰 New Donation: ${latest.name || "Anonymous"} - KES ${latest.amount || 0}`);
-    }
-
   } catch(err){
-    console.log("Dashboard error:", err);
+    console.log(err);
   }
 }
 
