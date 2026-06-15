@@ -1,3 +1,4 @@
+```js
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -7,12 +8,21 @@ const rateLimit = require("express-rate-limit");
 const app = express();
 
 /* =========================
+   ENV CHECK (IMPORTANT)
+========================= */
+console.log("ENV CHECK:", {
+  project: !!process.env.FIREBASE_PROJECT_ID,
+  email: !!process.env.FIREBASE_CLIENT_EMAIL,
+  key: !!process.env.FIREBASE_PRIVATE_KEY,
+});
+
+/* =========================
    BODY PARSER
 ========================= */
 app.use(express.json({ limit: "1mb" }));
 
 /* =========================
-   CORS (GitHub Pages SAFE)
+   CORS
 ========================= */
 app.use(cors({
   origin: [
@@ -32,15 +42,35 @@ app.use("/stkpush", rateLimit({
 }));
 
 /* =========================
-   FIREBASE INIT
+   FIREBASE SAFE INIT
 ========================= */
-admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-  }),
-});
+if (
+  !process.env.FIREBASE_PROJECT_ID ||
+  !process.env.FIREBASE_CLIENT_EMAIL ||
+  !process.env.FIREBASE_PRIVATE_KEY
+) {
+  console.error("❌ Firebase ENV variables missing");
+  process.exit(1);
+}
+
+try {
+
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    }),
+  });
+
+  console.log("✅ Firebase initialized");
+
+} catch (err) {
+
+  console.error("❌ Firebase init failed:", err);
+  process.exit(1);
+
+}
 
 const db = admin.firestore();
 
@@ -62,7 +92,9 @@ const USER_ROLES = {
    AUTH MIDDLEWARE
 ========================= */
 async function verifyAdmin(req, res, next) {
+
   try {
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -70,6 +102,7 @@ async function verifyAdmin(req, res, next) {
     }
 
     const idToken = authHeader.split("Bearer ")[1];
+
     const decoded = await admin.auth().verifyIdToken(idToken);
 
     if (!decoded?.email) {
@@ -82,12 +115,18 @@ async function verifyAdmin(req, res, next) {
       return res.status(403).json({ error: "No role assigned" });
     }
 
-    req.user = { email: decoded.email, role };
+    req.user = {
+      email: decoded.email,
+      role
+    };
+
     next();
 
   } catch (err) {
+
     console.error("Auth error:", err);
     return res.status(401).json({ error: "Authentication failed" });
+
   }
 }
 
@@ -95,14 +134,19 @@ async function verifyAdmin(req, res, next) {
    VALIDATION
 ========================= */
 function validateSTKInput(req, res, next) {
+
   const { phone, amount } = req.body;
 
   if (!phone || !amount) {
-    return res.status(400).json({ error: "Phone and amount required" });
+    return res.status(400).json({
+      error: "Phone and amount required"
+    });
   }
 
   if (isNaN(amount) || amount <= 0 || amount > 100000) {
-    return res.status(400).json({ error: "Invalid amount" });
+    return res.status(400).json({
+      error: "Invalid amount"
+    });
   }
 
   next();
@@ -121,13 +165,18 @@ const callbackUrl = process.env.CALLBACK_URL;
    ACCESS TOKEN
 ========================= */
 async function getAccessToken() {
+
   const url =
     "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
 
-  const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
+  const auth = Buffer.from(
+    `${consumerKey}:${consumerSecret}`
+  ).toString("base64");
 
   const res = await axios.get(url, {
-    headers: { Authorization: `Basic ${auth}` }
+    headers: {
+      Authorization: `Basic ${auth}`
+    }
   });
 
   return res.data.access_token;
@@ -137,9 +186,14 @@ async function getAccessToken() {
    STK PUSH
 ========================= */
 app.post("/stkpush", validateSTKInput, async (req, res) => {
+
   try {
 
-    const { name = "Anonymous", phone, amount } = req.body;
+    const {
+      name = "Anonymous",
+      phone,
+      amount
+    } = req.body;
 
     const token = await getAccessToken();
 
@@ -169,7 +223,11 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
     const response = await axios.post(
       "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
       payload,
-      { headers: { Authorization: `Bearer ${token}` } }
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
     );
 
     await db.collection("donations").add({
@@ -185,8 +243,16 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
     res.json(response.data);
 
   } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).json({ error: "STK Push failed" });
+
+    console.error(
+      "STK PUSH ERROR:",
+      err.response?.data || err.message
+    );
+
+    res.status(500).json({
+      error: "STK Push failed"
+    });
+
   }
 });
 
@@ -194,50 +260,72 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
    CALLBACK
 ========================= */
 app.post("/callback", async (req, res) => {
+
   try {
 
     const secret = req.headers["x-callback-secret"];
+
     if (CALLBACK_SECRET && secret !== CALLBACK_SECRET) {
-      return res.status(403).json({ error: "Invalid callback secret" });
+      return res.status(403).json({
+        error: "Invalid callback secret"
+      });
     }
 
     const callback = req.body?.Body?.stkCallback;
 
     if (!callback?.CheckoutRequestID) {
-      return res.status(400).json({ error: "Invalid callback" });
+      return res.status(400).json({
+        error: "Invalid callback"
+      });
     }
 
-    const status = callback.ResultCode === 0 ? "completed" : "failed";
+    const status =
+      callback.ResultCode === 0
+        ? "completed"
+        : "failed";
 
     const snap = await db.collection("donations")
-      .where("checkoutRequestID", "==", callback.CheckoutRequestID)
+      .where(
+        "checkoutRequestID",
+        "==",
+        callback.CheckoutRequestID
+      )
       .limit(1)
       .get();
 
     if (!snap.empty) {
+
       const doc = snap.docs[0];
 
       if (doc.data().status === "pending") {
+
         await doc.ref.update({
           status,
           callbackData: callback,
           updatedAt: new Date(),
         });
+
       }
     }
 
     res.json({ ResultCode: 0 });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Callback failed" });
+
+    console.error("CALLBACK ERROR:", err);
+
+    res.status(500).json({
+      error: "Callback failed"
+    });
+
   }
 });
 
 /* =========================
-   🔥 FIXED: PUBLIC STATS (IMPORTANT)
+   PUBLIC STATS
 ========================= */
 app.get("/stats", async (req, res) => {
+
   try {
 
     const snap = await db.collection("donations").get();
@@ -250,6 +338,7 @@ app.get("/stats", async (req, res) => {
     const donations = [];
 
     snap.forEach(doc => {
+
       const d = doc.data();
 
       total += Number(d.amount || 0);
@@ -258,13 +347,29 @@ app.get("/stats", async (req, res) => {
       else if (d.status === "pending") pending++;
       else failed++;
 
-      donations.push({ id: doc.id, ...d });
+      donations.push({
+        id: doc.id,
+        ...d
+      });
+
     });
 
-    res.json({ total, completed, pending, failed, donations });
+    res.json({
+      total,
+      completed,
+      pending,
+      failed,
+      donations
+    });
 
   } catch (err) {
-    res.status(500).json({ error: "Stats error" });
+
+    console.error("STATS ERROR:", err);
+
+    res.status(500).json({
+      error: "Stats error"
+    });
+
   }
 });
 
@@ -272,10 +377,15 @@ app.get("/stats", async (req, res) => {
    PROTECTED DONATIONS
 ========================= */
 app.get("/donations", verifyAdmin, async (req, res) => {
+
   try {
 
-    if (!["admin", "finance"].includes(req.user.role)) {
-      return res.status(403).json({ error: "Not allowed" });
+    if (
+      !["admin", "finance"].includes(req.user.role)
+    ) {
+      return res.status(403).json({
+        error: "Not allowed"
+      });
     }
 
     const snap = await db.collection("donations").get();
@@ -288,7 +398,13 @@ app.get("/donations", verifyAdmin, async (req, res) => {
     res.json(donations);
 
   } catch (err) {
-    res.status(500).json({ error: "Fetch error" });
+
+    console.error("DONATIONS ERROR:", err);
+
+    res.status(500).json({
+      error: "Fetch error"
+    });
+
   }
 });
 
@@ -303,4 +419,8 @@ app.get("/", (req, res) => {
    START SERVER
 ========================= */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on ${PORT}`);
+});
+```
