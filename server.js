@@ -16,13 +16,10 @@ console.log("🔥 ENV CHECK:", {
 });
 
 /* =========================
-   BODY PARSER
+   MIDDLEWARE
 ========================= */
 app.use(express.json({ limit: "1mb" }));
 
-/* =========================
-   CORS
-========================= */
 app.use(cors({
   origin: [
     "https://rrmayore.github.io",
@@ -31,9 +28,6 @@ app.use(cors({
   methods: ["GET", "POST"],
 }));
 
-/* =========================
-   RATE LIMIT
-========================= */
 app.use("/stkpush", rateLimit({
   windowMs: 60 * 1000,
   max: 30,
@@ -41,7 +35,7 @@ app.use("/stkpush", rateLimit({
 }));
 
 /* =========================
-   FIREBASE INIT (SAFE)
+   FIREBASE INIT
 ========================= */
 if (
   !process.env.FIREBASE_PROJECT_ID ||
@@ -77,7 +71,7 @@ try {
 const CALLBACK_SECRET = process.env.CALLBACK_SECRET;
 
 /* =========================
-   🔥 REALTIME DONATIONS
+   REALTIME DONATIONS (LIVE FEED)
 ========================= */
 app.get("/realtime-donations", async (req, res) => {
   try {
@@ -100,7 +94,7 @@ app.get("/realtime-donations", async (req, res) => {
 });
 
 /* =========================
-   📊 STATS
+   STATS (GLOBAL DASHBOARD)
 ========================= */
 app.get("/stats", async (req, res) => {
   try {
@@ -134,8 +128,12 @@ app.get("/stats", async (req, res) => {
 });
 
 /* =========================
-   🏦 FUNDRAISER CREATION (NEW FEATURE)
+   🏦 FUNDRAISERS (V6 CORE FEATURE)
 ========================= */
+
+/**
+ * CREATE FUNDRAISER
+ */
 app.post("/fundraiser", async (req, res) => {
   try {
     const {
@@ -148,7 +146,9 @@ app.post("/fundraiser", async (req, res) => {
     } = req.body;
 
     if (!name || !target || !shortcode) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({
+        error: "Missing required fields (name, target, shortcode)"
+      });
     }
 
     const doc = await db.collection("fundraisers").add({
@@ -172,11 +172,33 @@ app.post("/fundraiser", async (req, res) => {
   }
 });
 
+/**
+ * GET ALL FUNDRAISERS
+ */
+app.get("/fundraisers", async (req, res) => {
+  try {
+    const snap = await db.collection("fundraisers")
+      .orderBy("createdAt", "desc")
+      .get();
+
+    const data = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
+
+    res.json(data);
+
+  } catch (err) {
+    console.error("FUNDRAISERS FETCH ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch fundraisers" });
+  }
+});
+
 /* =========================
    HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
-  res.send("HarambeeFlow Backend v5 🚀");
+  res.send("HarambeeFlow Backend V6 🚀 (Fundraiser System Active)");
 });
 
 /* =========================
