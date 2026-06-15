@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
-<title>HarambeeFlow Fintech Dashboard v2</title>
+<title>HarambeeFlow Fintech Dashboard v3</title>
 
 <style>
 body{
@@ -53,7 +52,6 @@ body{
   padding:20px;
 }
 
-/* PAGES */
 .page{display:none;}
 .page.active{display:block;}
 
@@ -85,61 +83,76 @@ body{
   font-size:13px;
 }
 
-/* HEADER */
-.topbar{
+/* LOGIN */
+.loginBox{
+  position:fixed;
+  inset:0;
+  background:#0b1220;
   display:flex;
-  justify-content:space-between;
+  justify-content:center;
   align-items:center;
-  margin-bottom:20px;
 }
 
-.badge{
-  background:#22c55e;
-  color:black;
-  padding:5px 10px;
-  border-radius:6px;
-  font-weight:bold;
+.loginCard{
+  background:#111827;
+  padding:20px;
+  border-radius:10px;
+  width:300px;
+  border:1px solid #1f2937;
 }
 
-/* TABLE */
-table{
+input{
   width:100%;
-  border-collapse:collapse;
-  font-size:13px;
+  padding:10px;
+  margin:8px 0;
+  background:#0f172a;
+  border:1px solid #1f2937;
+  color:white;
+  border-radius:6px;
 }
 
-th,td{
-  border-bottom:1px solid #1f2937;
-  padding:8px;
-  text-align:left;
+button.primary{
+  width:100%;
+  background:#22c55e;
+  border:none;
+  padding:10px;
+  color:black;
+  font-weight:bold;
+  border-radius:6px;
+  cursor:pointer;
 }
 </style>
 </head>
 
 <body>
 
+<!-- LOGIN SCREEN -->
+<div class="loginBox" id="loginBox">
+  <div class="loginCard">
+    <h3>Admin Login</h3>
+    <input id="email" placeholder="Email"/>
+    <input id="password" type="password" placeholder="Password"/>
+    <button class="primary" onclick="login()">Login</button>
+  </div>
+</div>
+
 <!-- SIDEBAR -->
 <div class="sidebar">
-  <div class="brand">Harambee<span>Flow v2</span></div>
+  <div class="brand">Harambee<span>Flow v3</span></div>
 
   <div class="nav">
     <button onclick="showPage('dashboard')">📊 Dashboard</button>
     <button onclick="showPage('feed')">💰 Live Feed</button>
-    <button onclick="showPage('analytics')">📈 Analytics</button>
-    <button onclick="showPage('settings')">⚙ Settings</button>
+    <button onclick="logout()">🚪 Logout</button>
   </div>
 </div>
 
 <!-- MAIN -->
 <div class="main">
 
-<!-- DASHBOARD -->
 <div id="dashboard" class="page active">
 
-  <div class="topbar">
-    <h2>Dashboard</h2>
-    <div class="badge" id="status">LIVE</div>
-  </div>
+  <h2>Dashboard</h2>
 
   <div class="cards">
     <div class="card"><h2 id="total">KES 0</h2><p>Total</p></div>
@@ -150,7 +163,6 @@ th,td{
 
 </div>
 
-<!-- FEED PAGE -->
 <div id="feed" class="page">
 
   <h2>Live Feed</h2>
@@ -158,66 +170,92 @@ th,td{
 
 </div>
 
-<!-- ANALYTICS -->
-<div id="analytics" class="page">
-
-  <h2>Analytics</h2>
-  <p>Coming next upgrade: charts + revenue trends 📊</p>
-
 </div>
 
-<!-- SETTINGS -->
-<div id="settings" class="page">
-
-  <h2>Settings</h2>
-  <p>Backend: Connected</p>
-  <p>Mode: Production</p>
-
-</div>
-
-</div>
+<!-- FIREBASE SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
 
 <script>
 
-/* =====================
-   PAGE NAVIGATION
-===================== */
+/* =========================
+   🔥 YOUR FIREBASE CONFIG (PASTED HERE)
+========================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
+  authDomain: "harambeeflow.firebaseapp.com",
+  projectId: "harambeeflow",
+  storageBucket: "harambeeflow.firebasestorage.app",
+  messagingSenderId: "991042439020",
+  appId: "1:991042439020:web:f31c474633b26c52121549",
+  measurementId: "G-X131DGXWVJ"
+};
+
+/* INIT FIREBASE */
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
+/* =========================
+   LOGIN
+========================= */
+async function login(){
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  try{
+    await auth.signInWithEmailAndPassword(email, password);
+    document.getElementById("loginBox").style.display = "none";
+    load();
+  }catch(err){
+    alert("Login failed");
+    console.log(err);
+  }
+}
+
+/* LOGOUT */
+function logout(){
+  auth.signOut();
+  location.reload();
+}
+
+/* AUTH STATE */
+auth.onAuthStateChanged(user=>{
+  if(user){
+    document.getElementById("loginBox").style.display = "none";
+    load();
+  }else{
+    document.getElementById("loginBox").style.display = "flex";
+  }
+});
+
+/* NAV */
 function showPage(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(page).classList.add('active');
 }
 
-/* =====================
-   DATA LOAD
-===================== */
+/* LOAD DASHBOARD */
 async function load(){
 
-  try{
+  const res = await fetch("https://harambeeflow-backend.onrender.com/stats");
+  const data = await res.json();
 
-    const res = await fetch("https://harambeeflow-backend.onrender.com/stats");
-    const data = await res.json();
+  document.getElementById("total").innerText = "KES " + data.total;
+  document.getElementById("completed").innerText = data.completed;
+  document.getElementById("pending").innerText = data.pending;
+  document.getElementById("failed").innerText = data.failed;
 
-    document.getElementById("total").innerText = "KES " + data.total;
-    document.getElementById("completed").innerText = data.completed;
-    document.getElementById("pending").innerText = data.pending;
-    document.getElementById("failed").innerText = data.failed;
+  const feedBox = document.getElementById("feedBox");
+  feedBox.innerHTML = "";
 
-    const feedBox = document.getElementById("feedBox");
-    feedBox.innerHTML = "";
-
-    data.donations.slice(-20).reverse().forEach(d=>{
-      const div = document.createElement("div");
-      div.innerText = `💰 ${d.name || "Anon"} • ${d.phone} • KES ${d.amount} (${d.status})`;
-      feedBox.appendChild(div);
-    });
-
-  }catch(err){
-    console.log(err);
-  }
+  data.donations.slice(-20).reverse().forEach(d=>{
+    const div = document.createElement("div");
+    div.innerText = `💰 ${d.name || "Anon"} • ${d.phone} • KES ${d.amount} (${d.status})`;
+    feedBox.appendChild(div);
+  });
 }
 
-load();
-setInterval(load,5000);
+setInterval(load, 5000);
 
 </script>
 
