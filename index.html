@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<title>HarambeeFlow AI</title>
+
+<style>
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  font-family: Arial, sans-serif;
+  background:#0f172a;
+  color:white;
+}
+
+/* HEADER */
+
+.header{
+  background:#111827;
+  padding:20px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:1px solid #1f2937;
+}
+
+.logo{
+  font-size:24px;
+  font-weight:bold;
+}
+
+.logo span{
+  color:#22c55e;
+}
+
+/* HERO */
+
+.hero{
+  padding:80px 20px;
+  text-align:center;
+}
+
+.hero h1{
+  font-size:48px;
+  margin-bottom:20px;
+}
+
+.hero p{
+  max-width:700px;
+  margin:auto;
+  line-height:1.7;
+  color:#cbd5e1;
+  font-size:18px;
+}
+
+/* BUTTONS */
+
+.buttons{
+  margin-top:40px;
+  display:flex;
+  justify-content:center;
+  gap:20px;
+  flex-wrap:wrap;
+}
+
+.btn{
+  padding:15px 28px;
+  border-radius:10px;
+  text-decoration:none;
+  font-weight:bold;
+  transition:0.3s;
+}
+
+.primary{
+  background:#22c55e;
+  color:black;
+}
+
+.primary:hover{
+  background:#16a34a;
+}
+
+.secondary{
+  background:#1f2937;
+  color:white;
+}
+
+.secondary:hover{
+  background:#374151;
+}
+
+/* FEATURES */
+
+.features{
+  padding:60px 20px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:20px;
+}
+
+.card{
+  background:#111827;
+  padding:25px;
+  border-radius:15px;
+  border:1px solid #1f2937;
+}
+
+.card h3{
+  margin-bottom:15px;
+  color:#22c55e;
+}
+
+.card p{
+  color:#cbd5e1;
+  line-height:1.6;
+}
+
+/* FOOTER */
+
+.footer{
+  text-align:center;
+  padding:30px;
+  color:#94a3b8;
+  border-top:1px solid #1f2937;
+  margin-top:40px;
+}
+
+@media(max-width:768px){
+
+  .hero h1{
+    font-size:34px;
+  }
+
+  .hero p{
+    font-size:16px;
+  }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+
+<div class="header">
+  <div class="logo">
+    Harambee<span>Flow AI</span>
+  </div>
+</div>
+
+<!-- HERO -->
+
+<section class="hero">
+
+  <h1>
+    Smart M-PESA Fundraising Platform
+  </h1>
+
+  <p>
+    HarambeeFlow AI helps churches, families, communities,
+    schools and organizations collect contributions securely
+    using M-PESA STK Push technology with real-time tracking,
+    dashboards and intelligent donation management.
+  </p>
+
+  <div class="buttons">
+
+    <a href="donate.html" class="btn primary">
+      💰 Donate Now
+    </a>
+
+    <a href="login.html" class="btn secondary">
+      🔐 Admin Login
+    </a>
+
+  </div>
+
+</section>
+
+<!-- FEATURES -->
+
+<section class="features">
+
+  <div class="card">
+    <h3>⚡ Instant M-PESA Payments</h3>
+    <p>
+      Secure Daraja STK Push integration for seamless donor contributions.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>📊 Real-Time Dashboard</h3>
+    <p>
+      Watch donations update live instantly without refreshing the page.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>🔒 Bank-Grade Security</h3>
+    <p>
+      Protected backend architecture with authentication and audit controls.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>📱 Mobile Friendly</h3>
+    <p>
+      Optimized for smartphones, tablets and desktop experiences.
+    </p>
+  </div>
+
+</section>
+
+<!-- FOOTER -->
+
+<div class="footer">
+  © 2026 HarambeeFlow AI — Built for Secure Community Fundraising
+</div>
+
+</body>
+</html>
