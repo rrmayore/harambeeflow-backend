@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow Fintech Dashboard v3</title>
+<title>HarambeeFlow Fintech v4</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body{
@@ -42,20 +46,13 @@ body{
   cursor:pointer;
 }
 
-.nav button:hover{
-  background:#1f2937;
-}
+.nav button:hover{background:#1f2937;}
 
-/* MAIN */
-.main{
-  flex:1;
-  padding:20px;
-}
+.main{flex:1;padding:20px;}
 
 .page{display:none;}
 .page.active{display:block;}
 
-/* CARDS */
 .cards{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
@@ -71,13 +68,12 @@ body{
 
 .card h2{color:#22c55e;margin:0;}
 
-/* FEED */
 .feed{
   margin-top:20px;
   background:#0f172a;
   padding:10px;
   border-radius:10px;
-  height:300px;
+  height:260px;
   overflow:auto;
   border:1px solid #1f2937;
   font-size:13px;
@@ -91,14 +87,14 @@ body{
   display:flex;
   justify-content:center;
   align-items:center;
+  z-index:10;
 }
 
 .loginCard{
   background:#111827;
   padding:20px;
   border-radius:10px;
-  width:300px;
-  border:1px solid #1f2937;
+  width:320px;
 }
 
 input{
@@ -121,15 +117,22 @@ button.primary{
   border-radius:6px;
   cursor:pointer;
 }
+
+canvas{
+  background:#0f172a;
+  border:1px solid #1f2937;
+  border-radius:10px;
+  padding:10px;
+}
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN SCREEN -->
+<!-- LOGIN -->
 <div class="loginBox" id="loginBox">
   <div class="loginCard">
-    <h3>Admin Login</h3>
+    <h3>Admin Login v4</h3>
     <input id="email" placeholder="Email"/>
     <input id="password" type="password" placeholder="Password"/>
     <button class="primary" onclick="login()">Login</button>
@@ -138,10 +141,11 @@ button.primary{
 
 <!-- SIDEBAR -->
 <div class="sidebar">
-  <div class="brand">Harambee<span>Flow v3</span></div>
+  <div class="brand">Harambee<span>Flow v4</span></div>
 
   <div class="nav">
     <button onclick="showPage('dashboard')">📊 Dashboard</button>
+    <button onclick="showPage('analytics')">📈 Analytics</button>
     <button onclick="showPage('feed')">💰 Live Feed</button>
     <button onclick="logout()">🚪 Logout</button>
   </div>
@@ -150,6 +154,7 @@ button.primary{
 <!-- MAIN -->
 <div class="main">
 
+<!-- DASHBOARD -->
 <div id="dashboard" class="page active">
 
   <h2>Dashboard</h2>
@@ -163,6 +168,15 @@ button.primary{
 
 </div>
 
+<!-- ANALYTICS -->
+<div id="analytics" class="page">
+
+  <h2>Revenue Analytics</h2>
+  <canvas id="chart" height="120"></canvas>
+
+</div>
+
+<!-- FEED -->
 <div id="feed" class="page">
 
   <h2>Live Feed</h2>
@@ -172,50 +186,34 @@ button.primary{
 
 </div>
 
-<!-- FIREBASE SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
-
 <script>
 
-/* =========================
-   🔥 YOUR FIREBASE CONFIG (PASTED HERE)
-========================= */
+/* FIREBASE */
 const firebaseConfig = {
   apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
   authDomain: "harambeeflow.firebaseapp.com",
   projectId: "harambeeflow",
   storageBucket: "harambeeflow.firebasestorage.app",
   messagingSenderId: "991042439020",
-  appId: "1:991042439020:web:f31c474633b26c52121549",
-  measurementId: "G-X131DGXWVJ"
+  appId: "1:991042439020:web:f31c474633b26c52121549"
 };
 
-/* INIT FIREBASE */
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
-/* =========================
-   LOGIN
-========================= */
+let chart;
+
+/* LOGIN */
 async function login(){
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  try{
-    await auth.signInWithEmailAndPassword(email, password);
-    document.getElementById("loginBox").style.display = "none";
-    load();
-  }catch(err){
-    alert("Login failed");
-    console.log(err);
-  }
+  await auth.signInWithEmailAndPassword(email, password);
 }
 
 /* LOGOUT */
 function logout(){
   auth.signOut();
-  location.reload();
 }
 
 /* AUTH STATE */
@@ -234,7 +232,7 @@ function showPage(page){
   document.getElementById(page).classList.add('active');
 }
 
-/* LOAD DASHBOARD */
+/* LOAD DATA */
 async function load(){
 
   const res = await fetch("https://harambeeflow-backend.onrender.com/stats");
@@ -245,13 +243,32 @@ async function load(){
   document.getElementById("pending").innerText = data.pending;
   document.getElementById("failed").innerText = data.failed;
 
+  /* FEED */
   const feedBox = document.getElementById("feedBox");
   feedBox.innerHTML = "";
 
-  data.donations.slice(-20).reverse().forEach(d=>{
+  data.donations.slice(-15).reverse().forEach(d=>{
     const div = document.createElement("div");
-    div.innerText = `💰 ${d.name || "Anon"} • ${d.phone} • KES ${d.amount} (${d.status})`;
+    div.innerText = `💰 ${d.name} • ${d.phone} • KES ${d.amount} (${d.status})`;
     feedBox.appendChild(div);
+  });
+
+  /* CHART */
+  const totals = data.donations.slice(-10).map(d=>Number(d.amount || 0));
+
+  if(chart) chart.destroy();
+
+  chart = new Chart(document.getElementById("chart"), {
+    type: "line",
+    data: {
+      labels: totals.map((_,i)=>"Tx " + (i+1)),
+      datasets: [{
+        label: "Revenue",
+        data: totals,
+        borderColor: "#22c55e",
+        backgroundColor: "rgba(34,197,94,0.2)"
+      }]
+    }
   });
 }
 
