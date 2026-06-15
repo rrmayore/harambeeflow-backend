@@ -7,14 +7,12 @@ const rateLimit = require("express-rate-limit");
 const app = express();
 
 /* =========================
-   ENV DEBUG (RENDER)
+   ENV DEBUG
 ========================= */
 console.log("🔥 ENV CHECK:", {
   project: !!process.env.FIREBASE_PROJECT_ID,
   email: !!process.env.FIREBASE_CLIENT_EMAIL,
   key: !!process.env.FIREBASE_PRIVATE_KEY,
-  consumer: !!process.env.CONSUMER_KEY,
-  secret: !!process.env.CONSUMER_SECRET,
 });
 
 /* =========================
@@ -79,7 +77,7 @@ try {
 const CALLBACK_SECRET = process.env.CALLBACK_SECRET;
 
 /* =========================
-   🔥 REALTIME DONATIONS (NEW)
+   🔥 REALTIME DONATIONS
 ========================= */
 app.get("/realtime-donations", async (req, res) => {
   try {
@@ -102,7 +100,7 @@ app.get("/realtime-donations", async (req, res) => {
 });
 
 /* =========================
-   PUBLIC STATS (ENTERPRISE SAFE)
+   📊 STATS
 ========================= */
 app.get("/stats", async (req, res) => {
   try {
@@ -136,10 +134,49 @@ app.get("/stats", async (req, res) => {
 });
 
 /* =========================
+   🏦 FUNDRAISER CREATION (NEW FEATURE)
+========================= */
+app.post("/fundraiser", async (req, res) => {
+  try {
+    const {
+      name,
+      target,
+      description,
+      shortcode,
+      accountRef,
+      treasurerPhone
+    } = req.body;
+
+    if (!name || !target || !shortcode) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const doc = await db.collection("fundraisers").add({
+      name,
+      target: Number(target),
+      description: description || "",
+      shortcode,
+      accountRef: accountRef || `REF-${Date.now()}`,
+      treasurerPhone: treasurerPhone || "",
+      createdAt: new Date()
+    });
+
+    res.json({
+      id: doc.id,
+      message: "Fundraiser created successfully"
+    });
+
+  } catch (err) {
+    console.error("FUNDRAISER ERROR:", err);
+    res.status(500).json({ error: "Failed to create fundraiser" });
+  }
+});
+
+/* =========================
    HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
-  res.send("HarambeeFlow Backend OK 🚀");
+  res.send("HarambeeFlow Backend v5 🚀");
 });
 
 /* =========================
