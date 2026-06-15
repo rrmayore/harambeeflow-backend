@@ -40,7 +40,7 @@ admin.initializeApp({
 const db = admin.firestore();
 
 /* =========================
-   🔐 ENTERPRISE SECRET KEY (NEW)
+   ENTERPRISE SECRET
 ========================= */
 const CALLBACK_SECRET = process.env.CALLBACK_SECRET;
 
@@ -70,7 +70,7 @@ async function logAction(user, action) {
 }
 
 /* =========================
-   AUTH + RBAC GUARD
+   AUTH GUARD
 ========================= */
 async function verifyAdmin(req, res, next) {
   try {
@@ -154,12 +154,14 @@ async function getAccessToken() {
 }
 
 /* =========================
-   STK PUSH
+   STK PUSH (FIXED NAME STORAGE)
 ========================= */
 app.post("/stkpush", validateSTKInput, async (req, res) => {
   try {
-    const { phone, amount } = req.body;
 
+    const { name, phone, amount } = req.body;
+
+    // prevent duplicate pending
     const existing = await db.collection("donations")
       .where("phone", "==", phone)
       .where("status", "==", "pending")
@@ -203,7 +205,9 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
+    // ✅ FIX: now includes donor name
     await db.collection("donations").add({
+      name: name || "Anonymous",
       phone,
       amount,
       checkoutRequestID: response.data.CheckoutRequestID,
@@ -221,12 +225,11 @@ app.post("/stkpush", validateSTKInput, async (req, res) => {
 });
 
 /* =========================
-   CALLBACK (NOW ENTERPRISE-GUARDED)
+   CALLBACK (SECURED)
 ========================= */
 app.post("/callback", async (req, res) => {
   try {
 
-    // 🔐 SECRET KEY VALIDATION (ENTERPRISE LAYER)
     const secret = req.headers["x-callback-secret"];
 
     if (!CALLBACK_SECRET || secret !== CALLBACK_SECRET) {
@@ -263,7 +266,7 @@ app.post("/callback", async (req, res) => {
 });
 
 /* =========================
-   STATS (ADMIN ONLY)
+   STATS
 ========================= */
 app.get("/stats", verifyAdmin, async (req, res) => {
   try {
@@ -303,7 +306,7 @@ app.get("/stats", verifyAdmin, async (req, res) => {
 });
 
 /* =========================
-   DONATIONS (ADMIN + FINANCE)
+   DONATIONS
 ========================= */
 app.get("/donations", verifyAdmin, async (req, res) => {
   try {
