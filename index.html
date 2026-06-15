@@ -3,88 +3,115 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow AI Dashboard</title>
+
+<title>HarambeeFlow Fintech Dashboard v2</title>
 
 <style>
 body{
   margin:0;
   font-family:Arial;
-  background:#0f172a;
+  background:#0b1220;
   color:white;
+  display:flex;
 }
 
 /* SIDEBAR */
 .sidebar{
-  position:fixed;
-  left:0;
-  top:0;
   width:220px;
-  height:100%;
-  background:#111827;
+  background:#0f172a;
+  height:100vh;
   padding:20px;
   border-right:1px solid #1f2937;
 }
 
-.sidebar h2{
-  color:#22c55e;
+.brand{
+  font-size:18px;
+  font-weight:bold;
+  margin-bottom:20px;
 }
 
+.brand span{color:#22c55e;}
+
 .nav button{
-  display:block;
   width:100%;
-  margin:10px 0;
   padding:10px;
-  background:#0b1220;
+  margin:6px 0;
+  background:#111827;
   border:1px solid #1f2937;
   color:white;
-  cursor:pointer;
   border-radius:8px;
+  cursor:pointer;
 }
 
 .nav button:hover{
-  background:#22c55e;
-  color:black;
+  background:#1f2937;
 }
 
 /* MAIN */
 .main{
-  margin-left:240px;
+  flex:1;
   padding:20px;
 }
 
+/* PAGES */
+.page{display:none;}
+.page.active{display:block;}
+
 /* CARDS */
-.grid{
+.cards{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-  gap:12px;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:10px;
 }
 
 .card{
   background:#111827;
   padding:15px;
-  border-radius:12px;
+  border-radius:10px;
   border:1px solid #1f2937;
 }
 
-h1,h2{
-  color:#22c55e;
-}
+.card h2{color:#22c55e;margin:0;}
 
-/* PAGES */
-.page{
-  display:none;
-}
-
-.page.active{
-  display:block;
-}
-
+/* FEED */
 .feed{
-  background:#0b1220;
+  margin-top:20px;
+  background:#0f172a;
   padding:10px;
   border-radius:10px;
   height:300px;
   overflow:auto;
+  border:1px solid #1f2937;
+  font-size:13px;
+}
+
+/* HEADER */
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:20px;
+}
+
+.badge{
+  background:#22c55e;
+  color:black;
+  padding:5px 10px;
+  border-radius:6px;
+  font-weight:bold;
+}
+
+/* TABLE */
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+
+th,td{
+  border-bottom:1px solid #1f2937;
+  padding:8px;
+  text-align:left;
 }
 </style>
 </head>
@@ -93,69 +120,80 @@ h1,h2{
 
 <!-- SIDEBAR -->
 <div class="sidebar">
-  <h2>HarambeeFlow</h2>
+  <div class="brand">Harambee<span>Flow v2</span></div>
+
   <div class="nav">
-    <button onclick="showPage('dashboard')">Dashboard</button>
-    <button onclick="showPage('donations')">Donations</button>
-    <button onclick="showPage('analytics')">Analytics</button>
-    <button onclick="showPage('settings')">Settings</button>
+    <button onclick="showPage('dashboard')">📊 Dashboard</button>
+    <button onclick="showPage('feed')">💰 Live Feed</button>
+    <button onclick="showPage('analytics')">📈 Analytics</button>
+    <button onclick="showPage('settings')">⚙ Settings</button>
   </div>
 </div>
 
 <!-- MAIN -->
 <div class="main">
 
-  <!-- DASHBOARD -->
-  <div id="dashboard" class="page active">
-    <h1>Dashboard</h1>
+<!-- DASHBOARD -->
+<div id="dashboard" class="page active">
 
-    <div class="grid">
-      <div class="card"><h2 id="total">KES 0</h2><p>Total</p></div>
-      <div class="card"><h2 id="completed">0</h2><p>Completed</p></div>
-      <div class="card"><h2 id="pending">0</h2><p>Pending</p></div>
-      <div class="card"><h2 id="failed">0</h2><p>Failed</p></div>
-    </div>
-
-    <h3>Live Feed</h3>
-    <div class="feed" id="feed"></div>
+  <div class="topbar">
+    <h2>Dashboard</h2>
+    <div class="badge" id="status">LIVE</div>
   </div>
 
-  <!-- DONATIONS PAGE -->
-  <div id="donations" class="page">
-    <h1>Donations</h1>
-    <div id="donationList" class="feed"></div>
+  <div class="cards">
+    <div class="card"><h2 id="total">KES 0</h2><p>Total</p></div>
+    <div class="card"><h2 id="completed">0</h2><p>Completed</p></div>
+    <div class="card"><h2 id="pending">0</h2><p>Pending</p></div>
+    <div class="card"><h2 id="failed">0</h2><p>Failed</p></div>
   </div>
 
-  <!-- ANALYTICS -->
-  <div id="analytics" class="page">
-    <h1>Analytics</h1>
-    <div class="card">
-      <p>Coming soon: charts, trends, donor behavior</p>
-    </div>
-  </div>
+</div>
 
-  <!-- SETTINGS -->
-  <div id="settings" class="page">
-    <h1>Settings</h1>
-    <div class="card">
-      <p>Backend: Connected</p>
-      <p>API: Active</p>
-    </div>
-  </div>
+<!-- FEED PAGE -->
+<div id="feed" class="page">
+
+  <h2>Live Feed</h2>
+  <div class="feed" id="feedBox"></div>
+
+</div>
+
+<!-- ANALYTICS -->
+<div id="analytics" class="page">
+
+  <h2>Analytics</h2>
+  <p>Coming next upgrade: charts + revenue trends 📊</p>
+
+</div>
+
+<!-- SETTINGS -->
+<div id="settings" class="page">
+
+  <h2>Settings</h2>
+  <p>Backend: Connected</p>
+  <p>Mode: Production</p>
+
+</div>
 
 </div>
 
 <script>
 
-/* PAGE SWITCHER */
+/* =====================
+   PAGE NAVIGATION
+===================== */
 function showPage(page){
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(page).classList.add('active');
 }
 
-/* LOAD DATA */
+/* =====================
+   DATA LOAD
+===================== */
 async function load(){
+
   try{
+
     const res = await fetch("https://harambeeflow-backend.onrender.com/stats");
     const data = await res.json();
 
@@ -164,33 +202,22 @@ async function load(){
     document.getElementById("pending").innerText = data.pending;
     document.getElementById("failed").innerText = data.failed;
 
-    const feed = document.getElementById("feed");
-    const list = document.getElementById("donationList");
+    const feedBox = document.getElementById("feedBox");
+    feedBox.innerHTML = "";
 
-    feed.innerHTML = "";
-    list.innerHTML = "";
-
-    data.donations.slice(-15).reverse().forEach(d => {
-
-      const text = `💰 ${d.name || "Anonymous"} • ${d.phone} • KES ${d.amount} (${d.status})`;
-
-      const div1 = document.createElement("div");
-      div1.innerText = text;
-      feed.appendChild(div1);
-
-      const div2 = document.createElement("div");
-      div2.innerText = text;
-      list.appendChild(div2);
-
+    data.donations.slice(-20).reverse().forEach(d=>{
+      const div = document.createElement("div");
+      div.innerText = `💰 ${d.name || "Anon"} • ${d.phone} • KES ${d.amount} (${d.status})`;
+      feedBox.appendChild(div);
     });
 
-  } catch(e){
-    console.log(e);
+  }catch(err){
+    console.log(err);
   }
 }
 
 load();
-setInterval(load, 5000);
+setInterval(load,5000);
 
 </script>
 
