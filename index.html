@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow Fintech V8 Enterprise</title>
+<title>HarambeeFlow Fintech V9 Enterprise</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
@@ -18,7 +18,6 @@ body{
   display:flex;
 }
 
-/* SIDEBAR */
 .sidebar{
   width:220px;
   background:#0f172a;
@@ -51,12 +50,12 @@ body{
 .page{display:none;}
 .page.active{display:block;}
 
-/* CARDS */
 .cards{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
   gap:10px;
 }
+
 .card{
   background:#111827;
   padding:15px;
@@ -64,7 +63,6 @@ body{
   border:1px solid #1f2937;
 }
 
-/* FEED */
 .feed{
   margin-top:20px;
   background:#0f172a;
@@ -76,7 +74,6 @@ body{
   font-size:13px;
 }
 
-/* LOGIN */
 .loginBox{
   position:fixed;
   inset:0;
@@ -86,6 +83,7 @@ body{
   align-items:center;
   z-index:10;
 }
+
 .loginCard{
   background:#111827;
   padding:20px;
@@ -114,7 +112,6 @@ button.primary{
   cursor:pointer;
 }
 
-/* MODAL */
 .modal{
   display:none;
   position:fixed;
@@ -124,25 +121,13 @@ button.primary{
   align-items:center;
   z-index:999;
 }
+
 .modalContent{
   width:420px;
   background:#111827;
   padding:20px;
   border-radius:12px;
   border:1px solid #1f2937;
-}
-
-canvas{
-  background:#0f172a;
-  border:1px solid #1f2937;
-  border-radius:10px;
-  padding:10px;
-}
-
-.loading{
-  text-align:center;
-  margin-top:10px;
-  opacity:0.7;
 }
 </style>
 </head>
@@ -152,7 +137,7 @@ canvas{
 <!-- LOGIN -->
 <div class="loginBox" id="loginBox">
   <div class="loginCard">
-    <h3>Admin Login V8</h3>
+    <h3>Admin Login V9</h3>
     <input id="email" placeholder="Email"/>
     <input id="password" type="password" placeholder="Password"/>
     <button class="primary" onclick="login()">Login</button>
@@ -169,7 +154,7 @@ canvas{
     <input id="fGoal" type="number" placeholder="Goal Amount (KES)"/>
 
     <button class="primary" onclick="createFundraiser()">Create</button>
-    <button onclick="closeModal()" style="margin-top:10px;width:100%;background:#1f2937;color:white;border:none;padding:10px;border-radius:6px;">
+    <button onclick="closeModal()" class="primary" style="background:#1f2937;margin-top:10px;">
       Cancel
     </button>
   </div>
@@ -177,7 +162,7 @@ canvas{
 
 <!-- SIDEBAR -->
 <div class="sidebar">
-  <div class="brand">Harambee<span>Flow V8</span></div>
+  <div class="brand">Harambee<span>Flow V9</span></div>
 
   <div class="nav">
     <button onclick="showPage('dashboard')">📊 Dashboard</button>
@@ -194,7 +179,6 @@ canvas{
 <!-- DASHBOARD -->
 <div id="dashboard" class="page active">
   <h2>Dashboard</h2>
-  <div class="loading" id="loading">Loading live data...</div>
 
   <div class="cards">
     <div class="card"><h2 id="total">KES 0</h2><p>Total</p></div>
@@ -215,15 +199,9 @@ canvas{
   <div id="fundraiserList" class="cards"></div>
 </div>
 
-<!-- ANALYTICS -->
-<div id="analytics" class="page">
-  <h2>Revenue Analytics (V8)</h2>
-  <canvas id="chart" height="120"></canvas>
-</div>
-
 <!-- FEED -->
 <div id="feed" class="page">
-  <h2>Live Feed (Realtime)</h2>
+  <h2>Live Feed</h2>
   <div class="feed" id="feedBox"></div>
 </div>
 
@@ -231,150 +209,115 @@ canvas{
 
 <script>
 
-const firebaseConfig = {
+firebase.initializeApp({
   apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
   authDomain: "harambeeflow.firebaseapp.com",
-  projectId: "harambeeflow",
-  storageBucket: "harambeeflow.firebasestorage.app",
-  messagingSenderId: "991042439020",
-  appId: "1:991042439020:web:f31c474633b26c52121549"
-};
+  projectId: "harambeeflow"
+});
 
-firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
-let chart;
 let isLoggedIn = false;
+
+/* LOGIN */
+function login(){
+  auth.signInWithEmailAndPassword(email.value, password.value)
+    .catch(err=>alert("Login failed"));
+}
+
+/* LOGOUT */
+function logout(){ auth.signOut(); }
 
 /* AUTH */
 auth.onAuthStateChanged(user=>{
   isLoggedIn = !!user;
-  document.getElementById("loginBox").style.display = user ? "none" : "flex";
+  loginBox.style.display = user ? "none" : "flex";
   if(user) load();
 });
-
-/* LOGIN */
-async function login(){
-  try{
-    await auth.signInWithEmailAndPassword(
-      document.getElementById("email").value,
-      document.getElementById("password").value
-    );
-  }catch(err){
-    alert("Login failed");
-  }
-}
-
-/* LOGOUT */
-function logout(){
-  auth.signOut();
-}
 
 /* NAV */
 function showPage(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(page).classList.add('active');
-
-  if(page === "fundraisers"){
-    loadFundraisers();
-  }
+  if(page==="fundraisers") loadFundraisers();
 }
 
 /* MODAL */
-function openModal(){ document.getElementById("fundraiserModal").style.display="flex"; }
-function closeModal(){ document.getElementById("fundraiserModal").style.display="none"; }
+function openModal(){ fundraiserModal.style.display="flex"; }
+function closeModal(){ fundraiserModal.style.display="none"; }
 
-/* CREATE FUNDRAISER */
+/* CREATE */
 async function createFundraiser(){
 
   const data = {
     title: fTitle.value,
     description: fDesc.value,
-    goal: fGoal.value
+    goal: Number(fGoal.value || 0)
   };
 
-  try{
-    await fetch("https://harambeeflow-backend.onrender.com/fundraiser", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(data)
-    });
+  await fetch("https://harambeeflow-backend.onrender.com/fundraiser", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(data)
+  });
 
-    closeModal();
-    fTitle.value = "";
-    fDesc.value = "";
-    fGoal.value = "";
+  closeModal();
+  fTitle.value = "";
+  fDesc.value = "";
+  fGoal.value = "";
 
-    loadFundraisers();
-
-  }catch(err){
-    console.log(err);
-  }
+  loadFundraisers();
 }
 
 /* LOAD FUNDRAISERS */
 async function loadFundraisers(){
 
-  try{
-    const res = await fetch("https://harambeeflow-backend.onrender.com/fundraisers");
-    const data = await res.json();
+  const res = await fetch("https://harambeeflow-backend.onrender.com/fundraisers");
+  const data = await res.json();
 
-    const container = document.getElementById("fundraiserList");
-    container.innerHTML = "";
+  fundraiserList.innerHTML = "";
 
-    if(data.length === 0){
-      container.innerHTML = "<p>No fundraisers yet. Start one.</p>";
-      return;
-    }
-
-    data.forEach(f=>{
-      const div = document.createElement("div");
-      div.className = "card";
-      div.innerHTML = `
-        <h3>${f.title}</h3>
-        <p>${f.description || ""}</p>
-        <p><b>KES ${f.raised || 0}</b> / KES ${f.goal || 0}</p>
-      `;
-      container.appendChild(div);
-    });
-
-  }catch(err){
-    console.log("Fundraiser load error", err);
+  if(!data.length){
+    fundraiserList.innerHTML = "<p>No fundraisers yet</p>";
+    return;
   }
+
+  data.forEach(f=>{
+    const div = document.createElement("div");
+    div.className="card";
+    div.innerHTML=`
+      <h3>${f.title}</h3>
+      <p>${f.description||""}</p>
+      <p><b>KES ${Number(f.raised||0)}</b> / KES ${Number(f.goal||0)}</p>
+    `;
+    fundraiserList.appendChild(div);
+  });
 }
 
 /* LOAD DASHBOARD */
 async function load(){
 
-  if(!isLoggedIn) return;
+  const res = await fetch("https://harambeeflow-backend.onrender.com/realtime-donations");
+  const donations = await res.json();
 
-  try{
+  let total=0,completed=0,pending=0,failed=0;
 
-    const res = await fetch("https://harambeeflow-backend.onrender.com/realtime-donations");
-    const donations = await res.json();
+  donations.forEach(d=>{
+    total+=Number(d.amount||0);
+    d.status==="completed"?completed++:d.status==="pending"?pending++:failed++;
+  });
 
-    let total=0,completed=0,pending=0,failed=0;
+  document.getElementById("total").innerText="KES "+total;
+  document.getElementById("completed").innerText=completed;
+  document.getElementById("pending").innerText=pending;
+  document.getElementById("failed").innerText=failed;
 
-    donations.forEach(d=>{
-      total += Number(d.amount||0);
-      d.status==="completed"?completed++:d.status==="pending"?pending++:failed++;
-    });
-
-    totalEl.innerText="KES "+total;
-    completedEl.innerText=completed;
-    pendingEl.innerText=pending;
-    failedEl.innerText=failed;
-
-    feedBox.innerHTML="";
-    donations.slice(0,20).forEach(d=>{
-      const div=document.createElement("div");
-      div.innerText=`💰 ${d.name||"Anon"} • ${d.amount} • ${d.status}`;
-      feedBox.appendChild(div);
-    });
-
-  }catch(err){
-    console.log(err);
-  }
+  feedBox.innerHTML="";
+  donations.slice(0,20).forEach(d=>{
+    const div=document.createElement("div");
+    div.innerText=`💰 ${d.name||"Anon"} • ${d.amount} • ${d.status}`;
+    feedBox.appendChild(div);
+  });
 }
 
 setInterval(load,5000);
