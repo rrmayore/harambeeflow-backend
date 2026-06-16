@@ -3,41 +3,25 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow Fintech V9.2 Stable Debug</title>
+<title>HarambeeFlow Fintech V9.3 Stable</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body{
-  margin:0;
-  font-family:Arial;
-  background:#0b1220;
-  color:white;
-  display:flex;
-}
+body{margin:0;font-family:Arial;background:#0b1220;color:white;display:flex;}
 
 .sidebar{
-  width:220px;
-  background:#0f172a;
-  height:100vh;
-  padding:20px;
-  border-right:1px solid #1f2937;
+width:220px;background:#0f172a;height:100vh;padding:20px;border-right:1px solid #1f2937;
 }
 
 .brand{font-size:18px;font-weight:bold;margin-bottom:20px;}
 .brand span{color:#22c55e;}
 
 .nav button{
-  width:100%;
-  padding:10px;
-  margin:6px 0;
-  background:#111827;
-  border:1px solid #1f2937;
-  color:white;
-  border-radius:8px;
-  cursor:pointer;
+width:100%;padding:10px;margin:6px 0;background:#111827;border:1px solid #1f2937;
+color:white;border-radius:8px;cursor:pointer;
 }
 .nav button:hover{background:#1f2937;}
 
@@ -47,65 +31,41 @@ body{
 .page.active{display:block;}
 
 .cards{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-  gap:10px;
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+gap:10px;
 }
 
 .card{
-  background:#111827;
-  padding:15px;
-  border-radius:10px;
-  border:1px solid #1f2937;
+background:#111827;padding:15px;border-radius:10px;border:1px solid #1f2937;
 }
 
 .feed{
-  margin-top:20px;
-  background:#0f172a;
-  padding:10px;
-  border-radius:10px;
-  height:260px;
-  overflow:auto;
-  border:1px solid #1f2937;
-  font-size:13px;
+margin-top:20px;background:#0f172a;padding:10px;border-radius:10px;
+height:260px;overflow:auto;border:1px solid #1f2937;font-size:13px;
 }
 
 .loginBox{
-  position:fixed;
-  inset:0;
-  background:#0b1220;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  z-index:10;
+position:fixed;inset:0;background:#0b1220;display:flex;
+justify-content:center;align-items:center;z-index:10;
 }
 
 .loginCard{
-  background:#111827;
-  padding:20px;
-  border-radius:10px;
-  width:320px;
+background:#111827;padding:20px;border-radius:10px;width:320px;
 }
 
 input, textarea{
-  width:100%;
-  padding:10px;
-  margin:8px 0;
-  background:#0f172a;
-  border:1px solid #1f2937;
-  color:white;
-  border-radius:6px;
+width:100%;padding:10px;margin:8px 0;background:#0f172a;
+border:1px solid #1f2937;color:white;border-radius:6px;
 }
 
 button.primary{
-  width:100%;
-  background:#22c55e;
-  border:none;
-  padding:10px;
-  color:black;
-  font-weight:bold;
-  border-radius:6px;
-  cursor:pointer;
+width:100%;background:#22c55e;border:none;padding:10px;
+color:black;font-weight:bold;border-radius:6px;cursor:pointer;
+}
+
+canvas{
+background:#0f172a;border:1px solid #1f2937;border-radius:10px;padding:10px;
 }
 </style>
 </head>
@@ -114,7 +74,7 @@ button.primary{
 
 <div class="loginBox" id="loginBox">
   <div class="loginCard">
-    <h3>Admin Login V9.2</h3>
+    <h3>Admin Login V9.3</h3>
     <input id="email" placeholder="Email"/>
     <input id="password" type="password" placeholder="Password"/>
     <button class="primary" onclick="login()">Login</button>
@@ -122,11 +82,12 @@ button.primary{
 </div>
 
 <div class="sidebar">
-  <div class="brand">Harambee<span>Flow V9.2</span></div>
+  <div class="brand">Harambee<span>Flow V9.3</span></div>
 
   <div class="nav">
     <button onclick="showPage('dashboard')">📊 Dashboard</button>
     <button onclick="showPage('fundraisers')">🎯 Fundraisers</button>
+    <button onclick="showPage('analytics')">📈 Analytics</button>
     <button onclick="showPage('feed')">💰 Live Feed</button>
     <button onclick="logout()">🚪 Logout</button>
   </div>
@@ -134,6 +95,7 @@ button.primary{
 
 <div class="main">
 
+<!-- DASHBOARD -->
 <div id="dashboard" class="page active">
   <h2>Dashboard</h2>
 
@@ -145,13 +107,21 @@ button.primary{
   </div>
 </div>
 
+<!-- FUNDRAISERS -->
 <div id="fundraisers" class="page">
-  <h2>Fundraisers</h2>
+  <h2>🎯 Fundraisers</h2>
   <div id="fundraiserList" class="cards"></div>
 </div>
 
+<!-- ANALYTICS -->
+<div id="analytics" class="page">
+  <h2>📈 Analytics</h2>
+  <canvas id="chart"></canvas>
+</div>
+
+<!-- FEED -->
 <div id="feed" class="page">
-  <h2>Live Feed</h2>
+  <h2>💰 Live Feed</h2>
   <div class="feed" id="feedBox"></div>
 </div>
 
@@ -159,105 +129,129 @@ button.primary{
 
 <script>
 
-/* SAFE REFERENCES */
+/* SAFE DOM */
 const feedBox = document.getElementById("feedBox");
 const fundraiserList = document.getElementById("fundraiserList");
 const loginBox = document.getElementById("loginBox");
+const chartCanvas = document.getElementById("chart");
 
 firebase.initializeApp({
-  apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
-  authDomain: "harambeeflow.firebaseapp.com",
-  projectId: "harambeeflow"
+  apiKey:"AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
+  authDomain:"harambeeflow.firebaseapp.com",
+  projectId:"harambeeflow"
 });
 
 const auth = firebase.auth();
 
-let isLoggedIn = false;
+let isLoggedIn=false;
+let chart;
 
 /* LOGIN */
 function login(){
   auth.signInWithEmailAndPassword(
-    document.getElementById("email").value,
-    document.getElementById("password").value
-  ).catch(err=>alert("Login failed"));
+    email.value,
+    password.value
+  );
 }
 
 /* LOGOUT */
-function logout(){ auth.signOut(); }
+function logout(){auth.signOut();}
 
 /* AUTH */
 auth.onAuthStateChanged(user=>{
-  isLoggedIn = !!user;
-  loginBox.style.display = user ? "none" : "flex";
+  isLoggedIn=!!user;
+  loginBox.style.display=user?"none":"flex";
   if(user) load();
 });
 
 /* NAV */
 function showPage(page){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById(page).classList.add('active');
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById(page).classList.add("active");
+
+  if(page==="fundraisers") loadFundraisers();
+  if(page==="analytics") loadChart();
 }
 
-/* LOAD (STEP 1 + DEBUGGING) */
+/* LOAD DASHBOARD */
 async function load(){
 
   try{
 
-    console.log("LOAD START");
-
-    const res = await fetch("https://harambeeflow-backend.onrender.com/realtime-donations");
-    console.log("STATUS:", res.status);
-
-    const donations = await res.json();
-    console.log("DATA:", donations);
-
-    if(!Array.isArray(donations)){
-      console.error("Invalid API response");
-      return;
-    }
+    const res=await fetch("https://harambeeflow-backend.onrender.com/realtime-donations");
+    const donations=await res.json();
 
     let total=0,completed=0,pending=0,failed=0;
 
     donations.forEach(d=>{
-      total += Number(d.amount || 0);
-
-      if(d.status==="completed") completed++;
-      else if(d.status==="pending") pending++;
-      else failed++;
+      total+=Number(d.amount||0);
+      d.status==="completed"?completed++:d.status==="pending"?pending++:failed++;
     });
 
-    document.getElementById("total").innerText="KES "+total;
-    document.getElementById("completed").innerText=completed;
-    document.getElementById("pending").innerText=pending;
-    document.getElementById("failed").innerText=failed;
+    totalEl.innerText="KES "+total;
+    completedEl.innerText=completed;
+    pendingEl.innerText=pending;
+    failedEl.innerText=failed;
 
-    if(feedBox){
-      feedBox.innerHTML="";
-      donations.slice(0,20).forEach(d=>{
-        const div=document.createElement("div");
-        div.innerText=`💰 ${d.name||"Anon"} • ${d.amount} • ${d.status}`;
-        feedBox.appendChild(div);
-      });
-    }
+    feedBox.innerHTML="";
+    donations.slice(0,20).forEach(d=>{
+      const div=document.createElement("div");
+      div.innerText=`💰 ${d.name||"Anon"} • ${d.amount} • ${d.status}`;
+      feedBox.appendChild(div);
+    });
 
-    console.log("LOAD END");
-
-  }catch(err){
-    console.error("LOAD FAILED",err);
-  }
+  }catch(e){console.log(e);}
 }
 
-/* STEP 2 - SAFE INTERVAL (NO OVERLAP) */
-let loading = false;
+/* FUNDRAISERS */
+async function loadFundraisers(){
 
-setInterval(async ()=>{
-  if(!isLoggedIn || loading) return;
+  const res=await fetch("https://harambeeflow-backend.onrender.com/fundraisers");
+  const data=await res.json();
 
-  loading = true;
-  await load();
-  loading = false;
+  fundraiserList.innerHTML="";
 
-}, 8000);
+  if(!Array.isArray(data) || data.length===0){
+    fundraiserList.innerHTML="<p>No fundraisers yet</p>";
+    return;
+  }
+
+  data.forEach(f=>{
+    const div=document.createElement("div");
+    div.className="card";
+    div.innerHTML=`
+      <h3>${f.title}</h3>
+      <p>${f.description||""}</p>
+      <p><b>KES ${f.raised||0}</b> / KES ${f.goal||0}</p>
+    `;
+    fundraiserList.appendChild(div);
+  });
+}
+
+/* ANALYTICS */
+async function loadChart(){
+
+  const res=await fetch("https://harambeeflow-backend.onrender.com/realtime-donations");
+  const donations=await res.json();
+
+  const data=donations.slice(0,10).map(d=>Number(d.amount||0));
+
+  if(chart) chart.destroy();
+
+  chart=new Chart(chartCanvas,{
+    type:"line",
+    data:{
+      labels:data.map((_,i)=>"Tx "+(i+1)),
+      datasets:[{
+        label:"Revenue",
+        data:data,
+        borderColor:"#22c55e"
+      }]
+    }
+  });
+}
+
+setInterval(()=>{ if(isLoggedIn) load(); },6000);
 
 </script>
 
