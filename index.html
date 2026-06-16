@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow Fintech V9 Enterprise</title>
+<title>HarambeeFlow Fintech V9.1 Stable</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
@@ -137,7 +137,7 @@ button.primary{
 <!-- LOGIN -->
 <div class="loginBox" id="loginBox">
   <div class="loginCard">
-    <h3>Admin Login V9</h3>
+    <h3>Admin Login V9.1</h3>
     <input id="email" placeholder="Email"/>
     <input id="password" type="password" placeholder="Password"/>
     <button class="primary" onclick="login()">Login</button>
@@ -162,7 +162,7 @@ button.primary{
 
 <!-- SIDEBAR -->
 <div class="sidebar">
-  <div class="brand">Harambee<span>Flow V9</span></div>
+  <div class="brand">Harambee<span>Flow V9.1</span></div>
 
   <div class="nav">
     <button onclick="showPage('dashboard')">📊 Dashboard</button>
@@ -209,6 +209,11 @@ button.primary{
 
 <script>
 
+/* SAFE REFERENCES */
+const feedBox = document.getElementById("feedBox");
+const fundraiserList = document.getElementById("fundraiserList");
+const loginBox = document.getElementById("loginBox");
+
 firebase.initializeApp({
   apiKey: "AIzaSyD6CTXy_YMZniq3CLBcdO_rEtRn1AOyySE",
   authDomain: "harambeeflow.firebaseapp.com",
@@ -221,7 +226,10 @@ let isLoggedIn = false;
 
 /* LOGIN */
 function login(){
-  auth.signInWithEmailAndPassword(email.value, password.value)
+  const emailVal = document.getElementById("email").value;
+  const passVal = document.getElementById("password").value;
+
+  auth.signInWithEmailAndPassword(emailVal, passVal)
     .catch(err=>alert("Login failed"));
 }
 
@@ -243,16 +251,16 @@ function showPage(page){
 }
 
 /* MODAL */
-function openModal(){ fundraiserModal.style.display="flex"; }
-function closeModal(){ fundraiserModal.style.display="none"; }
+function openModal(){ document.getElementById("fundraiserModal").style.display="flex"; }
+function closeModal(){ document.getElementById("fundraiserModal").style.display="none"; }
 
-/* CREATE */
+/* CREATE FUNDRAISER */
 async function createFundraiser(){
 
   const data = {
-    title: fTitle.value,
-    description: fDesc.value,
-    goal: Number(fGoal.value || 0)
+    title: document.getElementById("fTitle").value,
+    description: document.getElementById("fDesc").value,
+    goal: Number(document.getElementById("fGoal").value || 0)
   };
 
   await fetch("https://harambeeflow-backend.onrender.com/fundraiser", {
@@ -262,9 +270,10 @@ async function createFundraiser(){
   });
 
   closeModal();
-  fTitle.value = "";
-  fDesc.value = "";
-  fGoal.value = "";
+
+  document.getElementById("fTitle").value = "";
+  document.getElementById("fDesc").value = "";
+  document.getElementById("fGoal").value = "";
 
   loadFundraisers();
 }
@@ -272,12 +281,14 @@ async function createFundraiser(){
 /* LOAD FUNDRAISERS */
 async function loadFundraisers(){
 
+  if(!fundraiserList) return;
+
   const res = await fetch("https://harambeeflow-backend.onrender.com/fundraisers");
   const data = await res.json();
 
   fundraiserList.innerHTML = "";
 
-  if(!data.length){
+  if(!data || data.length === 0){
     fundraiserList.innerHTML = "<p>No fundraisers yet</p>";
     return;
   }
@@ -286,9 +297,9 @@ async function loadFundraisers(){
     const div = document.createElement("div");
     div.className="card";
     div.innerHTML=`
-      <h3>${f.title}</h3>
-      <p>${f.description||""}</p>
-      <p><b>KES ${Number(f.raised||0)}</b> / KES ${Number(f.goal||0)}</p>
+      <h3>${f.title || "Untitled"}</h3>
+      <p>${f.description || ""}</p>
+      <p><b>KES ${Number(f.raised ?? 0)}</b> / KES ${Number(f.goal ?? 0)}</p>
     `;
     fundraiserList.appendChild(div);
   });
@@ -297,30 +308,41 @@ async function loadFundraisers(){
 /* LOAD DASHBOARD */
 async function load(){
 
-  const res = await fetch("https://harambeeflow-backend.onrender.com/realtime-donations");
-  const donations = await res.json();
+  try{
 
-  let total=0,completed=0,pending=0,failed=0;
+    const res = await fetch("https://harambeeflow-backend.onrender.com/realtime-donations");
+    const donations = await res.json();
 
-  donations.forEach(d=>{
-    total+=Number(d.amount||0);
-    d.status==="completed"?completed++:d.status==="pending"?pending++:failed++;
-  });
+    let total=0,completed=0,pending=0,failed=0;
 
-  document.getElementById("total").innerText="KES "+total;
-  document.getElementById("completed").innerText=completed;
-  document.getElementById("pending").innerText=pending;
-  document.getElementById("failed").innerText=failed;
+    donations.forEach(d=>{
+      total += Number(d.amount || 0);
 
-  feedBox.innerHTML="";
-  donations.slice(0,20).forEach(d=>{
-    const div=document.createElement("div");
-    div.innerText=`💰 ${d.name||"Anon"} • ${d.amount} • ${d.status}`;
-    feedBox.appendChild(div);
-  });
+      if(d.status==="completed") completed++;
+      else if(d.status==="pending") pending++;
+      else failed++;
+    });
+
+    document.getElementById("total").innerText="KES "+total;
+    document.getElementById("completed").innerText=completed;
+    document.getElementById("pending").innerText=pending;
+    document.getElementById("failed").innerText=failed;
+
+    if(feedBox){
+      feedBox.innerHTML="";
+      donations.slice(0,20).forEach(d=>{
+        const div=document.createElement("div");
+        div.innerText=`💰 ${d.name||"Anon"} • ${d.amount} • ${d.status}`;
+        feedBox.appendChild(div);
+      });
+    }
+
+  }catch(err){
+    console.log("LOAD ERROR",err);
+  }
 }
 
-setInterval(load,5000);
+setInterval(()=>{ if(isLoggedIn) load(); },5000);
 
 </script>
 
