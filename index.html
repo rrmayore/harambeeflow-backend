@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow Fintech V9.1 Stable</title>
+<title>HarambeeFlow Fintech V9.2 Stable Debug</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
@@ -26,11 +26,7 @@ body{
   border-right:1px solid #1f2937;
 }
 
-.brand{
-  font-size:18px;
-  font-weight:bold;
-  margin-bottom:20px;
-}
+.brand{font-size:18px;font-weight:bold;margin-bottom:20px;}
 .brand span{color:#22c55e;}
 
 .nav button{
@@ -111,72 +107,33 @@ button.primary{
   border-radius:6px;
   cursor:pointer;
 }
-
-.modal{
-  display:none;
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.7);
-  justify-content:center;
-  align-items:center;
-  z-index:999;
-}
-
-.modalContent{
-  width:420px;
-  background:#111827;
-  padding:20px;
-  border-radius:12px;
-  border:1px solid #1f2937;
-}
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
 <div class="loginBox" id="loginBox">
   <div class="loginCard">
-    <h3>Admin Login V9.1</h3>
+    <h3>Admin Login V9.2</h3>
     <input id="email" placeholder="Email"/>
     <input id="password" type="password" placeholder="Password"/>
     <button class="primary" onclick="login()">Login</button>
   </div>
 </div>
 
-<!-- MODAL -->
-<div class="modal" id="fundraiserModal">
-  <div class="modalContent">
-    <h3>🎯 Start Fundraiser</h3>
-
-    <input id="fTitle" placeholder="Fundraiser Title"/>
-    <textarea id="fDesc" placeholder="Description"></textarea>
-    <input id="fGoal" type="number" placeholder="Goal Amount (KES)"/>
-
-    <button class="primary" onclick="createFundraiser()">Create</button>
-    <button onclick="closeModal()" class="primary" style="background:#1f2937;margin-top:10px;">
-      Cancel
-    </button>
-  </div>
-</div>
-
-<!-- SIDEBAR -->
 <div class="sidebar">
-  <div class="brand">Harambee<span>Flow V9.1</span></div>
+  <div class="brand">Harambee<span>Flow V9.2</span></div>
 
   <div class="nav">
     <button onclick="showPage('dashboard')">📊 Dashboard</button>
     <button onclick="showPage('fundraisers')">🎯 Fundraisers</button>
-    <button onclick="showPage('analytics')">📈 Analytics</button>
     <button onclick="showPage('feed')">💰 Live Feed</button>
     <button onclick="logout()">🚪 Logout</button>
   </div>
 </div>
 
-<!-- MAIN -->
 <div class="main">
 
-<!-- DASHBOARD -->
 <div id="dashboard" class="page active">
   <h2>Dashboard</h2>
 
@@ -188,18 +145,11 @@ button.primary{
   </div>
 </div>
 
-<!-- FUNDRAISERS -->
 <div id="fundraisers" class="page">
-  <h2>🎯 Fundraisers</h2>
-
-  <button class="primary" onclick="openModal()">➕ Start New Fundraiser</button>
-
-  <br><br>
-
+  <h2>Fundraisers</h2>
   <div id="fundraiserList" class="cards"></div>
 </div>
 
-<!-- FEED -->
 <div id="feed" class="page">
   <h2>Live Feed</h2>
   <div class="feed" id="feedBox"></div>
@@ -226,11 +176,10 @@ let isLoggedIn = false;
 
 /* LOGIN */
 function login(){
-  const emailVal = document.getElementById("email").value;
-  const passVal = document.getElementById("password").value;
-
-  auth.signInWithEmailAndPassword(emailVal, passVal)
-    .catch(err=>alert("Login failed"));
+  auth.signInWithEmailAndPassword(
+    document.getElementById("email").value,
+    document.getElementById("password").value
+  ).catch(err=>alert("Login failed"));
 }
 
 /* LOGOUT */
@@ -247,71 +196,25 @@ auth.onAuthStateChanged(user=>{
 function showPage(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(page).classList.add('active');
-  if(page==="fundraisers") loadFundraisers();
 }
 
-/* MODAL */
-function openModal(){ document.getElementById("fundraiserModal").style.display="flex"; }
-function closeModal(){ document.getElementById("fundraiserModal").style.display="none"; }
-
-/* CREATE FUNDRAISER */
-async function createFundraiser(){
-
-  const data = {
-    title: document.getElementById("fTitle").value,
-    description: document.getElementById("fDesc").value,
-    goal: Number(document.getElementById("fGoal").value || 0)
-  };
-
-  await fetch("https://harambeeflow-backend.onrender.com/fundraiser", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(data)
-  });
-
-  closeModal();
-
-  document.getElementById("fTitle").value = "";
-  document.getElementById("fDesc").value = "";
-  document.getElementById("fGoal").value = "";
-
-  loadFundraisers();
-}
-
-/* LOAD FUNDRAISERS */
-async function loadFundraisers(){
-
-  if(!fundraiserList) return;
-
-  const res = await fetch("https://harambeeflow-backend.onrender.com/fundraisers");
-  const data = await res.json();
-
-  fundraiserList.innerHTML = "";
-
-  if(!data || data.length === 0){
-    fundraiserList.innerHTML = "<p>No fundraisers yet</p>";
-    return;
-  }
-
-  data.forEach(f=>{
-    const div = document.createElement("div");
-    div.className="card";
-    div.innerHTML=`
-      <h3>${f.title || "Untitled"}</h3>
-      <p>${f.description || ""}</p>
-      <p><b>KES ${Number(f.raised ?? 0)}</b> / KES ${Number(f.goal ?? 0)}</p>
-    `;
-    fundraiserList.appendChild(div);
-  });
-}
-
-/* LOAD DASHBOARD */
+/* LOAD (STEP 1 + DEBUGGING) */
 async function load(){
 
   try{
 
+    console.log("LOAD START");
+
     const res = await fetch("https://harambeeflow-backend.onrender.com/realtime-donations");
+    console.log("STATUS:", res.status);
+
     const donations = await res.json();
+    console.log("DATA:", donations);
+
+    if(!Array.isArray(donations)){
+      console.error("Invalid API response");
+      return;
+    }
 
     let total=0,completed=0,pending=0,failed=0;
 
@@ -337,12 +240,24 @@ async function load(){
       });
     }
 
+    console.log("LOAD END");
+
   }catch(err){
-    console.log("LOAD ERROR",err);
+    console.error("LOAD FAILED",err);
   }
 }
 
-setInterval(()=>{ if(isLoggedIn) load(); },5000);
+/* STEP 2 - SAFE INTERVAL (NO OVERLAP) */
+let loading = false;
+
+setInterval(async ()=>{
+  if(!isLoggedIn || loading) return;
+
+  loading = true;
+  await load();
+  loading = false;
+
+}, 8000);
 
 </script>
 
