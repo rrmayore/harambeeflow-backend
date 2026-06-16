@@ -64,11 +64,31 @@ color:black;font-weight:bold;border-radius:6px;cursor:pointer;
 canvas{
 background:#0f172a;border:1px solid #1f2937;border-radius:10px;padding:10px;
 }
+
+/* MODAL */
+.modal{
+display:none;
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.85);
+justify-content:center;
+align-items:center;
+z-index:9999;
+}
+
+.modalContent{
+width:420px;
+background:#111827;
+padding:20px;
+border-radius:12px;
+border:1px solid #1f2937;
+}
 </style>
 </head>
 
 <body>
 
+<!-- LOGIN -->
 <div class="loginBox" id="loginBox">
   <div class="loginCard">
     <h3>Admin Login V9.5</h3>
@@ -78,12 +98,44 @@ background:#0f172a;border:1px solid #1f2937;border-radius:10px;padding:10px;
   </div>
 </div>
 
+<!-- MODAL -->
+<div class="modal" id="fundraiserModal">
+  <div class="modalContent">
+
+    <h2>Start New Harambee Fundraiser Drive</h2>
+
+    <input id="fTitle" placeholder="FUNDRAISER NAME">
+    <input id="fGoal" type="number" placeholder="TARGET GOAL AMOUNT (KES)">
+    <textarea id="fDesc" placeholder="BRIEF DESCRIPTION"></textarea>
+
+    <input id="fSector" placeholder="SECTOR (Church/Community/School)">
+    <input id="fPaybill" placeholder="M-PESA PAYBILL/TILL">
+    <input id="fRef" placeholder="ACCOUNT REFERENCE CODE">
+    <input id="fPhone" placeholder="TREASURER PHONE (2547...)">
+
+    <div style="display:flex;gap:10px;margin-top:15px;">
+      <button onclick="closeModal()" style="flex:1;background:#1f2937;color:white;padding:10px;border:none;border-radius:6px;">
+        Cancel
+      </button>
+
+      <button onclick="createFundraiser()" style="flex:1;background:#22c55e;color:black;padding:10px;border:none;border-radius:6px;font-weight:bold;">
+        Start Fundraiser
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- SIDEBAR -->
 <div class="sidebar">
   <div class="brand">Harambee<span>Flow V9.5</span></div>
 
   <div class="nav">
     <button onclick="showPage('dashboard')">📊 Dashboard</button>
     <button onclick="showPage('fundraisers')">🎯 Fundraisers</button>
+    <button onclick="openModal()" style="background:#22c55e;color:black;">
+      ➕ Start New Fundraiser
+    </button>
     <button onclick="showPage('analytics')">📈 Analytics</button>
     <button onclick="showPage('feed')">💰 Live Feed</button>
     <button onclick="logout()">🚪 Logout</button>
@@ -146,12 +198,20 @@ function login(){
   auth.signInWithEmailAndPassword(
     document.getElementById("email").value,
     document.getElementById("password").value
-  ).catch(()=>alert("Login failed"));
+  );
 }
 
 /* LOGOUT */
 function logout(){
   auth.signOut();
+}
+
+/* MODAL CONTROLS */
+function openModal(){
+  document.getElementById("fundraiserModal").style.display="flex";
+}
+function closeModal(){
+  document.getElementById("fundraiserModal").style.display="none";
 }
 
 /* AUTH */
@@ -170,6 +230,36 @@ function showPage(page){
   if(page === "analytics") loadChart();
 }
 
+/* CREATE FUNDRAISER */
+async function createFundraiser(){
+
+  const data = {
+    title: document.getElementById("fTitle").value,
+    goal: Number(document.getElementById("fGoal").value || 0),
+    description: document.getElementById("fDesc").value,
+    sector: document.getElementById("fSector").value,
+    paybill: document.getElementById("fPaybill").value,
+    reference: document.getElementById("fRef").value,
+    phone: document.getElementById("fPhone").value,
+    raised: 0
+  };
+
+  try{
+    await fetch("https://harambeeflow-backend.onrender.com/fundraiser", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(data)
+    });
+
+    closeModal();
+    loadFundraisers();
+
+  }catch(e){
+    alert("Failed to create fundraiser");
+    console.log(e);
+  }
+}
+
 /* DASHBOARD */
 async function load(){
   try{
@@ -179,8 +269,7 @@ async function load(){
     let total=0,completed=0,pending=0,failed=0;
 
     (donations || []).forEach(d=>{
-      const amount = Number(d?.amount || 0);
-      total += amount;
+      total += Number(d?.amount || 0);
 
       if(d?.status === "completed") completed++;
       else if(d?.status === "pending") pending++;
@@ -193,19 +282,18 @@ async function load(){
     document.getElementById("failed").innerText = failed;
 
     feedBox.innerHTML = "";
-
     (donations || []).slice(0,20).forEach(d=>{
       const div = document.createElement("div");
-      div.innerText = `💰 ${d?.name || "Anon"} • ${Number(d?.amount||0)} • ${d?.status || "unknown"}`;
+      div.innerText = `💰 ${d?.name || "Anon"} • ${Number(d?.amount||0)} • ${d?.status}`;
       feedBox.appendChild(div);
     });
 
   }catch(e){
-    console.log("dashboard error", e);
+    console.log(e);
   }
 }
 
-/* FUNDRAISERS - FINAL SAFE VERSION */
+/* FUNDRAISERS */
 async function loadFundraisers(){
   try{
     const res = await fetch("https://harambeeflow-backend.onrender.com/fundraisers");
@@ -214,32 +302,24 @@ async function loadFundraisers(){
     fundraiserList.innerHTML = "";
 
     if(!Array.isArray(data) || data.length === 0){
-      fundraiserList.innerHTML = `
-        <div class="card">
-          <h3>No Fundraisers Yet</h3>
-          <p>Create one from backend.</p>
-        </div>`;
+      fundraiserList.innerHTML = "<p>No fundraisers yet</p>";
       return;
     }
 
     data.forEach(f=>{
-      const title = (f?.title || "Untitled Fundraiser").trim();
-      const desc = f?.description || "";
-
       const raised = Number(f?.raised || 0);
       const goal = Number(f?.goal || 1);
-
-      const percent = Math.max(0, Math.min(100, Math.round((raised / goal) * 100)));
+      const percent = Math.min(100, Math.round((raised/goal)*100));
 
       const div = document.createElement("div");
-      div.className = "card";
+      div.className="card";
 
-      div.innerHTML = `
-        <h3>${title}</h3>
-        <p>${desc}</p>
-        <p><b>KES ${raised}</b> / KES ${goal}</p>
+      div.innerHTML=`
+        <h3>${f?.title || "Untitled"}</h3>
+        <p>${f?.description || ""}</p>
+        <p>KES ${raised} / ${goal}</p>
 
-        <div style="background:#1f2937;height:8px;border-radius:5px;overflow:hidden;">
+        <div style="background:#1f2937;height:8px;border-radius:5px;">
           <div style="width:${percent}%;background:#22c55e;height:8px;"></div>
         </div>
 
@@ -250,22 +330,17 @@ async function loadFundraisers(){
     });
 
   }catch(e){
-    console.log("fundraisers error", e);
-
-    fundraiserList.innerHTML = `
-      <div class="card">
-        <h3>Error loading fundraisers</h3>
-      </div>`;
+    console.log(e);
   }
 }
 
-/* CHART SAFE */
+/* CHART */
 async function loadChart(){
   try{
     const res = await fetch("https://harambeeflow-backend.onrender.com/realtime-donations");
     const donations = await res.json().catch(()=>[]);
 
-    const data = (donations || []).slice(0,10).map(d=>Number(d?.amount||0));
+    const data = (donations||[]).slice(0,10).map(d=>Number(d?.amount||0));
 
     if(chart) chart.destroy();
 
@@ -283,7 +358,7 @@ async function loadChart(){
     });
 
   }catch(e){
-    console.log("chart error", e);
+    console.log(e);
   }
 }
 
