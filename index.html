@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HarambeeFlow Fintech V6 Enterprise</title>
+<title>HarambeeFlow Fintech V7 Enterprise</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
@@ -94,7 +94,7 @@ body{
   width:320px;
 }
 
-input{
+input, textarea{
   width:100%;
   padding:10px;
   margin:8px 0;
@@ -115,6 +115,25 @@ button.primary{
   cursor:pointer;
 }
 
+/* MODAL */
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.7);
+  justify-content:center;
+  align-items:center;
+  z-index:999;
+}
+.modalContent{
+  width:420px;
+  background:#111827;
+  padding:20px;
+  border-radius:12px;
+  border:1px solid #1f2937;
+}
+
+/* FEED SCROLL */
 canvas{
   background:#0f172a;
   border:1px solid #1f2937;
@@ -135,19 +154,36 @@ canvas{
 <!-- LOGIN -->
 <div class="loginBox" id="loginBox">
   <div class="loginCard">
-    <h3>Admin Login V6</h3>
+    <h3>Admin Login V7</h3>
     <input id="email" placeholder="Email"/>
     <input id="password" type="password" placeholder="Password"/>
     <button class="primary" onclick="login()">Login</button>
   </div>
 </div>
 
+<!-- MODAL -->
+<div class="modal" id="fundraiserModal">
+  <div class="modalContent">
+    <h3>🎯 Start Fundraiser</h3>
+
+    <input id="fTitle" placeholder="Fundraiser Title"/>
+    <textarea id="fDesc" placeholder="Description"></textarea>
+    <input id="fGoal" type="number" placeholder="Goal Amount (KES)"/>
+
+    <button class="primary" onclick="createFundraiser()">Create</button>
+    <button onclick="closeModal()" style="margin-top:10px;width:100%;background:#1f2937;color:white;border:none;padding:10px;border-radius:6px;">
+      Cancel
+    </button>
+  </div>
+</div>
+
 <!-- SIDEBAR -->
 <div class="sidebar">
-  <div class="brand">Harambee<span>Flow V6</span></div>
+  <div class="brand">Harambee<span>Flow V7</span></div>
 
   <div class="nav">
     <button onclick="showPage('dashboard')">📊 Dashboard</button>
+    <button onclick="showPage('fundraisers')">🎯 Fundraisers</button>
     <button onclick="showPage('analytics')">📈 Analytics</button>
     <button onclick="showPage('feed')">💰 Live Feed</button>
     <button onclick="logout()">🚪 Logout</button>
@@ -170,9 +206,27 @@ canvas{
   </div>
 </div>
 
+<!-- FUNDRAISERS -->
+<div id="fundraisers" class="page">
+  <h2>🎯 Fundraisers</h2>
+
+  <button class="primary" onclick="openModal()">
+    ➕ Start New Fundraiser
+  </button>
+
+  <br><br>
+
+  <div id="fundraiserList">
+    <div class="card">
+      <h3>Church Building Fund</h3>
+      <p>KES 120,000 / KES 500,000</p>
+    </div>
+  </div>
+</div>
+
 <!-- ANALYTICS -->
 <div id="analytics" class="page">
-  <h2>Revenue Analytics (V6)</h2>
+  <h2>Revenue Analytics (V7)</h2>
   <canvas id="chart" height="120"></canvas>
 </div>
 
@@ -222,12 +276,8 @@ function logout(){
 /* AUTH */
 auth.onAuthStateChanged(user=>{
   isLoggedIn = !!user;
-
   document.getElementById("loginBox").style.display = user ? "none" : "flex";
-
-  if(user){
-    load();
-  }
+  if(user) load();
 });
 
 /* NAV */
@@ -236,7 +286,40 @@ function showPage(page){
   document.getElementById(page).classList.add('active');
 }
 
-/* LOAD REALTIME DATA (V6 UPGRADE) */
+/* MODAL */
+function openModal(){
+  document.getElementById("fundraiserModal").style.display="flex";
+}
+
+function closeModal(){
+  document.getElementById("fundraiserModal").style.display="none";
+}
+
+/* CREATE FUNDRAISER */
+async function createFundraiser(){
+
+  const data = {
+    title: document.getElementById("fTitle").value,
+    description: document.getElementById("fDesc").value,
+    goal: document.getElementById("fGoal").value
+  };
+
+  try{
+    await fetch("https://harambeeflow-backend.onrender.com/fundraiser", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(data)
+    });
+
+    alert("Fundraiser created!");
+    closeModal();
+  }catch(err){
+    alert("Error creating fundraiser");
+    console.log(err);
+  }
+}
+
+/* LOAD */
 async function load(){
 
   if(!isLoggedIn) return;
@@ -266,40 +349,38 @@ async function load(){
     document.getElementById("pending").innerText = pending;
     document.getElementById("failed").innerText = failed;
 
-    /* FEED */
     const feedBox = document.getElementById("feedBox");
     feedBox.innerHTML = "";
 
-    donations.slice(0, 20).forEach(d=>{
+    donations.slice(0,20).forEach(d=>{
       const div = document.createElement("div");
       div.innerText = `💰 ${d.name || "Anon"} • ${d.phone} • KES ${d.amount} (${d.status})`;
       feedBox.appendChild(div);
     });
 
-    /* CHART */
-    const chartData = donations.slice(0, 10).map(d => Number(d.amount || 0));
+    const chartData = donations.slice(0,10).map(d=>Number(d.amount||0));
 
     if(chart) chart.destroy();
 
     chart = new Chart(document.getElementById("chart"), {
-      type: "line",
-      data: {
-        labels: chartData.map((_,i)=>"Tx "+(i+1)),
-        datasets: [{
-          label: "Revenue",
-          data: chartData,
-          borderColor: "#22c55e",
-          backgroundColor: "rgba(34,197,94,0.2)"
+      type:"line",
+      data:{
+        labels:chartData.map((_,i)=>"Tx "+(i+1)),
+        datasets:[{
+          label:"Revenue",
+          data:chartData,
+          borderColor:"#22c55e",
+          backgroundColor:"rgba(34,197,94,0.2)"
         }]
       }
     });
 
   }catch(err){
-    console.log("LOAD ERROR", err);
+    console.log(err);
   }
 }
 
-setInterval(load, 5000);
+setInterval(load,5000);
 
 </script>
 
