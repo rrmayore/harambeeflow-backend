@@ -143,7 +143,10 @@ const auth = firebase.auth();
 
 /* LOGIN */
 function login(){
-  auth.signInWithEmailAndPassword(email.value, password.value);
+  auth.signInWithEmailAndPassword(
+    document.getElementById("email").value,
+    document.getElementById("password").value
+  );
 }
 
 /* LOGOUT */
@@ -176,8 +179,7 @@ async function load(){
     let total=0,completed=0,pending=0,failed=0;
 
     (donations || []).forEach(d=>{
-      const amount = Number(d?.amount || 0);
-      total += amount;
+      total += Number(d?.amount || 0);
 
       if(d?.status === "completed") completed++;
       else if(d?.status === "pending") pending++;
@@ -202,7 +204,7 @@ async function load(){
   }
 }
 
-/* FUNDRAISERS (FIXED) */
+/* FUNDRAISERS (FINAL FIXED VERSION) */
 async function loadFundraisers(){
   try{
     const res = await fetch("https://harambeeflow-backend.onrender.com/fundraisers");
@@ -210,24 +212,24 @@ async function loadFundraisers(){
 
     fundraiserList.innerHTML = "";
 
-    if(!Array.isArray(data)){
-      fundraiserList.innerHTML = "<p>No valid fundraiser data</p>";
-      return;
-    }
-
-    if(data.length === 0){
-      fundraiserList.innerHTML = "<p>No fundraisers yet</p>";
+    if(!Array.isArray(data) || data.length === 0){
+      fundraiserList.innerHTML = `
+        <div class="card">
+          <h3>No Fundraisers Yet</h3>
+          <p>Create one from backend or admin panel.</p>
+        </div>
+      `;
       return;
     }
 
     data.forEach(f=>{
-      const title = f?.title || "Untitled Fundraiser";
+      const title = (f?.title?.trim()) ? f.title : "Untitled Fundraiser";
       const desc = f?.description || "";
 
       const raised = Number(f?.raised || 0);
-      const goal = Number(f?.goal || 0);
+      const goal = Number(f?.goal || 1);
 
-      const percent = goal > 0 ? Math.round((raised / goal) * 100) : 0;
+      const percent = Math.min(100, Math.round((raised / goal) * 100));
 
       const div = document.createElement("div");
       div.className = "card";
@@ -249,11 +251,16 @@ async function loadFundraisers(){
 
   }catch(e){
     console.log("fundraisers error", e);
-    fundraiserList.innerHTML = "<p>Failed to load fundraisers</p>";
+
+    fundraiserList.innerHTML = `
+      <div class="card">
+        <h3>Failed to load fundraisers</h3>
+      </div>
+    `;
   }
 }
 
-/* CHART (SAFE) */
+/* CHART */
 async function loadChart(){
   try{
     const res = await fetch("https://harambeeflow-backend.onrender.com/realtime-donations");
